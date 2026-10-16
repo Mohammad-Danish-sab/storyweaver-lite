@@ -51,7 +51,7 @@ export async function flushTelemetryQueue() {
         await deleteTx.objectStore(TELEMETRY_STORE).delete(keys[i]);
         await deleteTx.done;
       }
-    } catch (err) {
+    } catch {
       console.warn("[Telemetry Sync] Connection offline. Retrying later...");
       break;
     }

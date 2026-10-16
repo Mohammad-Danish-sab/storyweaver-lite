@@ -1,33 +1,4 @@
-import React from "react";
-
 export default function StoryCard({ story, language, onSelect }) {
-  return (
-    <div
-      onClick={() => onSelect(story.id)}
-      className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-xl transition transform hover:-translate-y-1 cursor-pointer border-4 border-amber-200 flex flex-col justify-between"
-    >
-      <div>
-        <img
-          src={story.cover_image}
-          alt={story.title_en}
-          className="h-48 w-full object-cover"
-        />
-        <div className="p-4">
-          <span className="bg-emerald-100 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full">
-            🌱 Level {story.level}
-          </span>
-          <h2 className="text-2xl font-bold text-gray-800 mt-2 line-clamp-2">
-            {language === "kn" ? story.title_kn : story.title_en}
-          </h2>
-        </div>
-      </div>
-
-      <div className="p-4 pt-0">
-        <button className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-2xl text-lg shadow transition flex items-center justify-center space-x-2">
-          <span>{language === "kn" ? "ಓದಿರಿ" : "Read Now"}</span>
-          <span>📖</span>
-        </button>
-      </div>
-    </div>
-  );
+  const title = language === "kn" ? story.title_kn : story.title_en;
+  return <article className="story-card"><div className="card-image-wrap"><img src={story.cover_image} alt="" className="card-image" /><span className="level-badge">Level {story.level}</span></div><div className="card-content"><p className="card-category">{story.category}</p><h3>{title}</h3><p className="card-meta">{story.pages.length} {story.pages.length === 1 ? "page" : "pages"} · Read together</p><button className="read-button" onClick={() => onSelect(story.id)}>Read story <span aria-hidden="true">→</span></button></div></article>;
 }

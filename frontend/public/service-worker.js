@@ -31,7 +31,7 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
 
   // Strategy for API Story Calls: Try Network -> Fallback to Cache
-  if (request.url.includes("/api/stories")) {
+  if (request.url.includes("/api/v1/stories")) {
     event.respondWith(
       fetch(request)
         .then((response) => {
