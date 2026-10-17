@@ -41,6 +41,29 @@ class TelemetryModel(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ReaderDeviceModel(Base):
+    __tablename__ = "reader_devices"
+
+    reader_id = Column(String, primary_key=True)
+    library_id = Column(String, primary_key=True, index=True)
+    first_seen_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class StoryDeletionModel(Base):
+    __tablename__ = "story_deletions"
+
+    story_id = Column(String, primary_key=True)
+    deleted_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class StoryMetadataModel(Base):
+    __tablename__ = "story_metadata"
+
+    story_id = Column(String, primary_key=True)
+    published_at = Column(String, nullable=False)
+    trend_score = Column(Integer, default=0, nullable=False)
+
+
 class StorySubmissionModel(Base):
     __tablename__ = "story_submissions"
 

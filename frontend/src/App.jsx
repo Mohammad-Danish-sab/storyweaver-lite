@@ -19,6 +19,7 @@ export default function App() {
   const [activeStoryId, setActiveStoryId] = useState(null);
   const [isLibrarianOpen, setIsLibrarianOpen] = useState(isAdminPath);
   const [view, setView] = useState(() => isAdminPath() ? "admin-gate" : "library");
+  const [adminPin, setAdminPin] = useState("");
   const [status, setStatus] = useState("loading");
   const [social, setSocial] = useState(getSocialState);
 
@@ -45,6 +46,7 @@ export default function App() {
 
   useEffect(() => {
     const handlePopState = () => {
+      setAdminPin("");
       if (isAdminPath()) {
         setIsLibrarianOpen(true);
         setView("admin-gate");
@@ -68,14 +70,16 @@ export default function App() {
 
   const toggleSocial = (key, storyId) => setSocial((current) => toggleStoryList(current, key, storyId));
 
-  const openAdminDashboard = () => {
+  const openAdminDashboard = (pin) => {
     if (!isAdminPath()) window.history.pushState({}, "", "/admin");
+    setAdminPin(pin);
     setIsLibrarianOpen(false);
     setView("admin");
   };
 
   const returnToLibrary = () => {
     if (isAdminPath()) window.history.replaceState({}, "", "/");
+    setAdminPin("");
     setIsLibrarianOpen(false);
     setView("library");
   };
@@ -87,7 +91,7 @@ export default function App() {
 
   if (activeStoryId) return <ReaderPage storyId={activeStoryId} language={language} social={social} onToggleSocial={toggleSocial} onSocialChange={setSocial} onBack={() => setActiveStoryId(null)} onComplete={(timeSpent) => queueTelemetry({ story_id: activeStoryId, library_id: "GP_LIB_KARNATAKA_01", language, completed: true, time_spent_seconds: timeSpent })} />;
   if (view === "studio") return <StoryStudio language={language} onBack={() => setView("library")} />;
-  if (view === "admin") return <RdprDashboard onBack={returnToLibrary} />;
+  if (view === "admin") return <RdprDashboard adminPin={adminPin} onBack={returnToLibrary} />;
 
   return (
     <div className="app-shell">

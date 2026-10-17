@@ -6,6 +6,7 @@ import logging
 from app.api.v1.stories import router as stories_router
 from app.api.v1.telemetry import router as telemetry_router
 from app.api.v1.submissions import router as submissions_router
+from app.api.v1.admin import router as admin_router
 from app.core.database import Base, engine
 import app.models.story  # Registers SQLAlchemy models before tables are created.
 
@@ -25,6 +26,7 @@ app.add_middleware(
 app.include_router(stories_router, prefix="/api/v1", tags=["stories"])
 app.include_router(telemetry_router, prefix="/api/v1", tags=["telemetry"])
 app.include_router(submissions_router, prefix="/api/v1", tags=["submissions"])
+app.include_router(admin_router, prefix="/api/v1", tags=["admin"])
 
 
 @app.on_event("startup")

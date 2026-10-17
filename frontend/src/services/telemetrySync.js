@@ -2,6 +2,16 @@ import { openDB } from "idb";
 
 const TELEMETRY_DB = "storyweaver_telemetry_db";
 const TELEMETRY_STORE = "pending_logs";
+const READER_ID_KEY = "storyweaver-reader-id";
+
+function getReaderId() {
+  let readerId = localStorage.getItem(READER_ID_KEY);
+  if (!readerId) {
+    readerId = crypto.randomUUID();
+    localStorage.setItem(READER_ID_KEY, readerId);
+  }
+  return readerId;
+}
 
 async function getTelemetryDB() {
   return openDB(TELEMETRY_DB, 1, {
@@ -18,6 +28,7 @@ export async function queueTelemetry(logData) {
   const db = await getTelemetryDB();
   await db.add(TELEMETRY_STORE, {
     ...logData,
+    reader_id: getReaderId(),
     timestamp: new Date().toISOString(),
   });
 

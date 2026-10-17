@@ -20,12 +20,23 @@ class StorySchema(BaseModel):
     published_at: str
     trend_score: int
 
+
+class StoryCreateSchema(BaseModel):
+    title_kn: str = Field(min_length=2, max_length=160)
+    title_en: str = Field(min_length=2, max_length=160)
+    level: int = Field(ge=1, le=5)
+    cover_image: str = Field(min_length=1, max_length=2048)
+    category: str = Field(min_length=2, max_length=40)
+    pages: List[PageSchema] = Field(min_length=1, max_length=30)
+
+
 class TelemetryLogSchema(BaseModel):
     story_id: str
     library_id: str
     language: str
     completed: bool
     time_spent_seconds: int
+    reader_id: str | None = Field(default=None, min_length=16, max_length=100)
 
 
 class StorySubmissionCreate(BaseModel):

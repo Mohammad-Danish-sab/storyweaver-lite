@@ -1,0 +1,145 @@
+.metric-grid {
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+}
+
+.reader-count-note {
+  max-width: 1150px;
+  margin: -1.7rem auto 2rem;
+  color: #78887f;
+  font-size: 0.76rem;
+}
+
+.story-management,
+.submission-review {
+  margin-top: 1.5rem;
+}
+
+.trending-list {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trending-list li,
+.admin-story-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid #e5ded1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.trending-list li {
+  justify-content: space-between;
+}
+
+.trending-list li span,
+.admin-story-row div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.trending-list strong,
+.admin-story-row strong {
+  color: #254638;
+}
+
+.trending-list small,
+.admin-story-row small {
+  color: #7b8e83;
+  font-size: 0.75rem;
+}
+
+.trending-list li > b {
+  color: #4d8265;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.catalog-heading {
+  margin: 2rem 0 1rem;
+}
+
+.admin-story-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.admin-story-row img {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.admin-story-row div {
+  flex: 1;
+  min-width: 0;
+}
+
+.story-delete {
+  width: auto;
+  color: #9d4141;
+}
+
+.story-upload-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.story-upload-form label {
+  display: grid;
+  gap: 0.4rem;
+  color: #46685a;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.story-upload-form input,
+.story-upload-form select,
+.story-upload-form textarea {
+  width: 100%;
+  border: 1px solid #d9d3c8;
+  border-radius: 10px;
+  padding: 0.75rem 0.8rem;
+  color: #284739;
+  background: #fff;
+  font: inherit;
+}
+
+.story-upload-form textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.upload-wide {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 600px) {
+  .story-upload-form {
+    grid-template-columns: 1fr;
+  }
+
+  .upload-wide {
+    grid-column: auto;
+  }
+
+  .admin-story-row {
+    flex-wrap: wrap;
+  }
+
+  .story-delete {
+    margin-left: auto;
+  }
+
+  .trending-list li {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

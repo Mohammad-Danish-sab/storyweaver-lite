@@ -3,6 +3,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.admin_auth import require_admin_pin
 from app.core.database import get_db
 from app.models.story import StorySubmissionModel
 from app.schemas.story import (
@@ -24,7 +25,11 @@ def create_submission(submission: StorySubmissionCreate, db: Session = Depends(g
 
 
 @router.get("/submissions", response_model=List[StorySubmissionSchema])
-def list_submissions(status_filter: str | None = None, db: Session = Depends(get_db)):
+def list_submissions(
+    status_filter: str | None = None,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_pin),
+):
     query = db.query(StorySubmissionModel)
     if status_filter:
         if status_filter not in {"pending", "published", "returned"}:
@@ -38,6 +43,7 @@ def update_submission_status(
     submission_id: int,
     update: StorySubmissionStatusUpdate,
     db: Session = Depends(get_db),
+    _: None = Depends(require_admin_pin),
 ):
     entry = db.get(StorySubmissionModel, submission_id)
     if not entry:

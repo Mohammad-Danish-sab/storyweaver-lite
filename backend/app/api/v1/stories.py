@@ -1,6 +1,20 @@
-from fastapi import APIRouter, HTTPException
+from datetime import date
 from typing import List, Optional
-from app.schemas.story import StorySchema
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session, selectinload
+
+from app.core.admin_auth import require_admin_pin
+from app.core.database import get_db
+from app.models.story import (
+    PageModel,
+    StoryDeletionModel,
+    StoryMetadataModel,
+    StoryModel,
+    TelemetryModel,
+)
+from app.schemas.story import StoryCreateSchema, StorySchema
 
 router = APIRouter()
 
@@ -58,10 +72,51 @@ STORIES_DB: List[dict] = [
         ["ಕಬೀರ್ ಮತ್ತು ಲೀಲಾ ಇಬ್ಬರಿಗೂ ತಮ್ಮ ಚಿತ್ರ ಬಿಡಿಸಲು ಒಂದೇ ಕೆಂಪು ಬಣ್ಣದ ಪೆನ್ಸಿಲ್ ಬೇಕಿತ್ತು. ಇಬ್ಬರೂ ಬೇಸರದಿಂದ ಒಬ್ಬರಿಗೊಬ್ಬರು ಬೆನ್ನು ತಿರುಗಿಸಿದರು.", "ಶಿಕ್ಷಕರು ತಮಗೆ ಏನು ಬೇಕೆಂದು ಹೇಳಲು ಕೇಳಿದರು. ಕಬೀರ್ ಸೂರ್ಯಾಸ್ತದ ಚಿತ್ರ ಬಿಡಿಸಲು ಬಯಸಿದರೆ, ಲೀಲಾ ಬಣ್ಣದ ಗಾಳಿಪಟ ಬಿಡಿಸಲು ಬಯಸಿದ್ದಳು.", "ಅವರು ಸರದಿಯಲ್ಲಿ ಪೆನ್ಸಿಲ್ ಬಳಸಲು ಒಪ್ಪಿಕೊಂಡರು ಮತ್ತು ಎರಡೂ ಚಿತ್ರಗಳನ್ನು ತರಗತಿಯ ಗೋಡೆಯ ಮೇಲೆ ಹಾಕಿದರು. ಕೆಲವು ಒಳ್ಳೆಯ ಮಾತುಗಳು ಇಬ್ಬರು ಗೆಳೆಯರ ನಡುವೆ ಸೇತುವೆ ಕಟ್ಟಿದವು."]),
 ]
 
+def serialize_database_story(story: StoryModel, db: Session) -> dict:
+    metadata = db.get(StoryMetadataModel, story.id)
+    read_count = db.query(TelemetryModel).filter(TelemetryModel.story_id == story.id).count()
+    return {
+        "id": story.id,
+        "title_kn": story.title_kn,
+        "title_en": story.title_en,
+        "level": story.level,
+        "cover_image": story.cover_image,
+        "category": story.category,
+        "pages": [
+            {
+                "page_number": page.page_number,
+                "text_kn": page.text_kn,
+                "text_en": page.text_en,
+                "image_url": page.image_url,
+                "audio_url_kn": page.audio_url_kn,
+            }
+            for page in sorted(story.pages, key=lambda page: page.page_number)
+        ],
+        "published_at": metadata.published_at if metadata else date.today().isoformat(),
+        "trend_score": (metadata.trend_score if metadata else 0) + read_count,
+    }
+
 
 @router.get("/stories", response_model=List[StorySchema])
-def get_stories(category: Optional[str] = None, level: Optional[int] = None):
-    results = STORIES_DB
+def get_stories(
+    category: Optional[str] = None,
+    level: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    deleted_ids = {
+        row[0] for row in db.query(StoryDeletionModel.story_id).all()
+    }
+    results = [story for story in STORIES_DB if story["id"] not in deleted_ids]
+    stored_stories = (
+        db.query(StoryModel)
+        .options(selectinload(StoryModel.pages))
+        .all()
+    )
+    results.extend(
+        serialize_database_story(story, db)
+        for story in stored_stories
+        if story.id not in deleted_ids
+    )
     if category and category != "all":
         results = [story for story in results if story["category"] == category]
     if level:
@@ -69,9 +124,78 @@ def get_stories(category: Optional[str] = None, level: Optional[int] = None):
     return results
 
 
-@router.get("/stories/{story_id}", response_model=StorySchema)
-def get_story(story_id: str):
-    story = next((story for story in STORIES_DB if story["id"] == story_id), None)
-    if not story:
+@router.post("/stories", response_model=StorySchema, status_code=status.HTTP_201_CREATED)
+def create_story(
+    story: StoryCreateSchema,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_pin),
+):
+    story_id = f"story-{uuid4().hex}"
+    entry = StoryModel(
+        id=story_id,
+        title_kn=story.title_kn,
+        title_en=story.title_en,
+        level=story.level,
+        category=story.category,
+        cover_image=story.cover_image,
+    )
+    entry.pages = [
+        PageModel(
+            page_number=page.page_number,
+            text_kn=page.text_kn,
+            text_en=page.text_en,
+            image_url=page.image_url or story.cover_image,
+            audio_url_kn=page.audio_url_kn,
+        )
+        for page in story.pages
+    ]
+    db.add(entry)
+    db.add(
+        StoryMetadataModel(
+            story_id=story_id,
+            published_at=date.today().isoformat(),
+            trend_score=0,
+        )
+    )
+    db.commit()
+    db.refresh(entry)
+    return serialize_database_story(entry, db)
+
+
+@router.delete("/stories/{story_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_story(
+    story_id: str,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_admin_pin),
+):
+    entry = db.get(StoryModel, story_id)
+    exists_in_catalog = any(story["id"] == story_id for story in STORIES_DB)
+    if entry is None and not exists_in_catalog:
         raise HTTPException(status_code=404, detail="Story not found")
-    return story
+
+    if db.get(StoryDeletionModel, story_id) is None:
+        db.add(StoryDeletionModel(story_id=story_id))
+    if entry is not None:
+        db.delete(entry)
+    metadata = db.get(StoryMetadataModel, story_id)
+    if metadata is not None:
+        db.delete(metadata)
+    db.commit()
+
+
+@router.get("/stories/{story_id}", response_model=StorySchema)
+def get_story(story_id: str, db: Session = Depends(get_db)):
+    if db.get(StoryDeletionModel, story_id) is not None:
+        raise HTTPException(status_code=404, detail="Story not found")
+    story = next((story for story in STORIES_DB if story["id"] == story_id), None)
+    if story is not None:
+        return story
+    entry = (
+        db.query(StoryModel)
+        .options(selectinload(StoryModel.pages))
+        .filter(StoryModel.id == story_id)
+        .first()
+    )
+    if entry is None:
+        raise HTTPException(status_code=404, detail="Story not found")
+    return serialize_database_story(entry, db)
