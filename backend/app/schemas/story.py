@@ -16,6 +16,8 @@ class StorySchema(BaseModel):
     cover_image: str
     category: str
     pages: List[PageSchema]
+    published_at: str
+    trend_score: int
 
 class TelemetryLogSchema(BaseModel):
     story_id: str
