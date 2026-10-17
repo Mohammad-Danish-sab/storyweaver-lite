@@ -39,3 +39,15 @@ class TelemetryModel(Base):
     completed = Column(Boolean, default=False)
     time_spent_seconds = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class StorySubmissionModel(Base):
+    __tablename__ = "story_submissions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(100), nullable=False)
+    content = Column(Text, nullable=False)
+    language = Column(String(2), nullable=False)
+    prompt = Column(String(200), nullable=True)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)

@@ -1,113 +1,39 @@
-import React, { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
+
+const libraries = [["GP_LIB_KARNATAKA_01", "Gram Panchayat Library #01 (Mysuru)"], ["GP_LIB_KARNATAKA_02", "Gram Panchayat Library #02 (Belagavi)"], ["GP_LIB_KARNATAKA_03", "Gram Panchayat Library #03 (Kalaburagi)"]];
 
 export default function RdprDashboard({ onBack }) {
+  const [libraryId, setLibraryId] = useState(libraries[0][0]);
   const [summary, setSummary] = useState(null);
-  const [libraryId, setLibraryId] = useState("GP_LIB_KARNATAKA_01");
+  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const fetchSummary = async (libId) => {
-    setLoading(true);
+  const [message, setMessage] = useState("");
+  const load = useCallback(async () => {
+    setLoading(true); setMessage("");
     try {
-      const res = await fetch(
-        `http://localhost:8000/api/v1/telemetry/summary?library_id=${libId}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setSummary(data);
-      }
-    } catch (err) {
-      console.warn("Failed to fetch telemetry summary:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchSummary(libraryId);
+      const [summaryResponse, submissionResponse] = await Promise.all([fetch(`http://localhost:8000/api/v1/telemetry/summary?library_id=${encodeURIComponent(libraryId)}`), fetch("http://localhost:8000/api/v1/submissions?status_filter=pending")]);
+      if (!summaryResponse.ok || !submissionResponse.ok) throw new Error();
+      setSummary(await summaryResponse.json()); setSubmissions(await submissionResponse.json());
+    } catch { setMessage("The admin service is unavailable. Check that the library server is running."); }
+    finally { setLoading(false); }
   }, [libraryId]);
-
-  return (
-    <div className="min-h-screen bg-gray-100 p-6 text-gray-900 font-sans select-none">
-      {/* Top Header */}
-      <div className="flex justify-between items-center bg-white p-5 rounded-3xl shadow-sm mb-6">
-        <div className="flex items-center space-x-3">
-          <span className="text-3xl">📊</span>
-          <div>
-            <h1 className="text-2xl font-bold">
-              RDPR Karnataka Analytics Dashboard
-            </h1>
-            <p className="text-sm text-gray-500">
-              Rural Public Library Reading Telemetry
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={onBack}
-          className="bg-gray-200 hover:bg-gray-300 font-bold px-5 py-2.5 rounded-2xl text-lg transition"
-        >
-          ⬅ Back to Library View
-        </button>
-      </div>
-
-      {/* Library Selector */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm mb-6 flex items-center justify-between">
-        <label className="text-lg font-bold text-gray-700">
-          Select Library Terminal:
-        </label>
-        <select
-          value={libraryId}
-          onChange={(e) => setLibraryId(e.target.value)}
-          className="p-3 border-2 border-emerald-500 rounded-2xl text-lg font-bold bg-emerald-50 outline-none"
-        >
-          <option value="GP_LIB_KARNATAKA_01">
-            Gram Panchayat Library #01 (Mysuru)
-          </option>
-          <option value="GP_LIB_KARNATAKA_02">
-            Gram Panchayat Library #02 (Belagavi)
-          </option>
-          <option value="GP_LIB_KARNATAKA_03">
-            Gram Panchayat Library #03 (Kalaburagi)
-          </option>
-        </select>
-      </div>
-
-      {/* Metrics Grid */}
-      {loading ? (
-        <div className="text-center py-20 text-xl font-bold text-gray-500">
-          Loading Analytics Data...
-        </div>
-      ) : summary ? (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-3xl shadow-md border-t-8 border-emerald-500">
-            <p className="text-gray-500 font-bold">Total Reading Sessions</p>
-            <p className="text-4xl font-extrabold text-gray-800 mt-2">
-              {summary.total_sessions}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl shadow-md border-t-8 border-amber-500">
-            <p className="text-gray-500 font-bold">Completed Stories</p>
-            <p className="text-4xl font-extrabold text-gray-800 mt-2">
-              {summary.completed_stories}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl shadow-md border-t-8 border-blue-500">
-            <p className="text-gray-500 font-bold">Completion Rate</p>
-            <p className="text-4xl font-extrabold text-gray-800 mt-2">
-              {summary.completion_rate}
-            </p>
-          </div>
-          <div className="bg-white p-6 rounded-3xl shadow-md border-t-8 border-purple-500">
-            <p className="text-gray-500 font-bold">Preferred Language</p>
-            <p className="text-4xl font-extrabold text-gray-800 mt-2 uppercase">
-              {summary.preferred_language}
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="text-center py-20 text-red-500 font-bold">
-          No telemetry records found for this terminal.
-        </div>
-      )}
-    </div>
-  );
+  useEffect(() => { load(); }, [load]);
+  const updateSubmission = async (id, status) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/submissions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status }) });
+      if (!response.ok) throw new Error();
+      setSubmissions((items) => items.filter((item) => item.id !== id));
+      setMessage(status === "published" ? "Story approved for the community collection." : "Story returned for more work.");
+    } catch { setMessage("That update could not be saved. Please try again."); }
+  };
+  return <main className="admin-shell">
+    <header className="admin-header"><div><p className="eyebrow">Staff area</p><h1>Library dashboard</h1><p>Reading activity and young-author submissions.</p></div><button className="secondary-action admin-back" onClick={onBack}>← Back to library</button></header>
+    <section className="admin-toolbar"><label htmlFor="library-select">Library terminal</label><select id="library-select" value={libraryId} onChange={(event) => setLibraryId(event.target.value)}>{libraries.map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select><button className="refresh-button" onClick={load} disabled={loading}>↻ Refresh data</button></section>
+    {message && <p className="admin-message" role="status">{message}</p>}
+    {loading ? <div className="empty-state">Loading staff data…</div> : <>
+      <section className="metric-grid" aria-label="Reading statistics"><Metric label="Reading sessions" value={summary?.total_sessions ?? 0} /><Metric label="Stories finished" value={summary?.completed_stories ?? 0} /><Metric label="Completion rate" value={summary?.completion_rate ?? "0%"} /><Metric label="Preferred language" value={(summary?.preferred_language ?? "kn").toUpperCase()} /></section>
+      <section className="review-section"><div className="review-heading"><div><p className="eyebrow">Young authors</p><h2>Stories waiting for review</h2></div><span>{submissions.length} pending</span></div>{submissions.length ? <div className="submission-list">{submissions.map((submission) => <article className="submission-card" key={submission.id}><div><span className="submission-meta">{submission.language === "kn" ? "Kannada" : "English"} · {new Date(submission.created_at).toLocaleDateString()}</span><h3>{submission.title}</h3><p className="submission-prompt">Prompt: {submission.prompt || "Free writing"}</p><p>{submission.content}</p></div><div className="review-actions"><button onClick={() => updateSubmission(submission.id, "returned")} className="secondary-action">Return</button><button onClick={() => updateSubmission(submission.id, "published")} className="primary-action">Approve</button></div></article>)}</div> : <div className="empty-state"><strong>All caught up.</strong><span>New child-authored stories will appear here for review.</span></div>}</section>
+    </>}
+  </main>;
 }
+function Metric({ label, value }) { return <article className="metric-card"><p>{label}</p><strong>{value}</strong></article>; }

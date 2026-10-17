@@ -30,7 +30,9 @@ def get_library_summary(library_id: str, db: Session = Depends(get_db)):
     
     top_language = db.query(
         TelemetryModel.language, func.count(TelemetryModel.language)
-    ).filter(TelemetryModel.library_id == library_id).group_by(TelemetryModel.language).first()
+    ).filter(TelemetryModel.library_id == library_id).group_by(
+        TelemetryModel.language
+    ).order_by(func.count(TelemetryModel.language).desc()).first()
 
     return {
         "library_id": library_id,

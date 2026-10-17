@@ -12,6 +12,13 @@ SQLALCHEMY_DATABASE_URL = os.getenv(
     "SQLALCHEMY_DATABASE_URL", "sqlite:///./storyweaver_lite.db"
 )
 
+# Psycopg 3 supports current Python releases and is the PostgreSQL driver used
+# by this project.  Accept existing ``postgresql://`` environment URLs too.
+if SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+        "postgresql://", "postgresql+psycopg://", 1
+    )
+
 connect_args = (
     {"check_same_thread": False}
     if SQLALCHEMY_DATABASE_URL.startswith("sqlite")

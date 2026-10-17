@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from datetime import datetime
+from pydantic import BaseModel, ConfigDict, Field
 from typing import List, Optional
 
 class PageSchema(BaseModel):
@@ -25,3 +26,28 @@ class TelemetryLogSchema(BaseModel):
     language: str
     completed: bool
     time_spent_seconds: int
+
+
+class StorySubmissionCreate(BaseModel):
+    """A child-authored story.  Names are deliberately not collected."""
+
+    title: str = Field(min_length=2, max_length=100)
+    content: str = Field(min_length=20, max_length=5000)
+    language: str = Field(pattern="^(en|kn)$")
+    prompt: str | None = Field(default=None, max_length=200)
+
+
+class StorySubmissionSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    content: str
+    language: str
+    prompt: str | None
+    status: str
+    created_at: datetime
+
+
+class StorySubmissionStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(pending|published|returned)$")

@@ -39,7 +39,7 @@ pydantic_core==2.50.1
 Pygments==2.21.0
 python-dotenv==1.2.4
 SQLAlchemy==2.0.43
-psycopg2-binary==2.9.10
+psycopg[binary]>=3.2,<3.4
 python-multipart==0.0.32
 PyYAML==6.0.3
 requests==2.34.2

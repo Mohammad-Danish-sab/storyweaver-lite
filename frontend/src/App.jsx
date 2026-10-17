@@ -2,18 +2,23 @@ import { useEffect, useMemo, useState } from "react";
 import StoryCard from "./components/discovery/StoryCard";
 import ReaderPage from "./pages/ReaderPage";
 import KioskLock from "./components/common/KioskLock";
+import RdprDashboard from "./components/admin/RdprDashboard";
+import StoryStudio from "./components/writing/StoryStudio";
 import { cacheStories, getCachedStories } from "./services/indexedDB";
 import { flushTelemetryQueue, queueTelemetry } from "./services/telemetrySync";
 import { getSocialState, toggleStoryList } from "./services/socialStore";
 
 const categories = [["all", "All stories"], ["trending", "Trending"], ["latest", "Latest"], ["saved", "Saved"], ["animals", "Animals"], ["folktales", "Folktales"], ["nature", "Nature"], ["science", "Science"], ["friendship", "Friendship"], ["community", "Community"]];
 
+const isAdminPath = () => window.location.pathname.replace(/\/+$/, "") === "/admin";
+
 export default function App() {
   const [stories, setStories] = useState([]);
   const [language, setLanguage] = useState("en");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeStoryId, setActiveStoryId] = useState(null);
-  const [isLibrarianOpen, setIsLibrarianOpen] = useState(false);
+  const [isLibrarianOpen, setIsLibrarianOpen] = useState(isAdminPath);
+  const [view, setView] = useState(() => isAdminPath() ? "admin-gate" : "library");
   const [status, setStatus] = useState("loading");
   const [social, setSocial] = useState(getSocialState);
 
@@ -38,6 +43,20 @@ export default function App() {
 
   useEffect(() => { loadStories(); flushTelemetryQueue(); }, []);
 
+  useEffect(() => {
+    const handlePopState = () => {
+      if (isAdminPath()) {
+        setIsLibrarianOpen(true);
+        setView("admin-gate");
+      } else {
+        setIsLibrarianOpen(false);
+        setView("library");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   const filteredStories = useMemo(() => {
     const result = selectedCategory === "all" || selectedCategory === "trending" || selectedCategory === "latest"
       ? [...stories] : stories.filter((story) => story.category === selectedCategory);
@@ -49,12 +68,26 @@ export default function App() {
 
   const toggleSocial = (key, storyId) => setSocial((current) => toggleStoryList(current, key, storyId));
 
+  const openAdminDashboard = () => {
+    if (!isAdminPath()) window.history.pushState({}, "", "/admin");
+    setIsLibrarianOpen(false);
+    setView("admin");
+  };
+
+  const returnToLibrary = () => {
+    if (isAdminPath()) window.history.replaceState({}, "", "/");
+    setIsLibrarianOpen(false);
+    setView("library");
+  };
+
   const handleSelectStory = (id) => {
     setActiveStoryId(id);
     queueTelemetry({ story_id: id, library_id: "GP_LIB_KARNATAKA_01", language, completed: false, time_spent_seconds: 0 });
   };
 
   if (activeStoryId) return <ReaderPage storyId={activeStoryId} language={language} social={social} onToggleSocial={toggleSocial} onSocialChange={setSocial} onBack={() => setActiveStoryId(null)} onComplete={(timeSpent) => queueTelemetry({ story_id: activeStoryId, library_id: "GP_LIB_KARNATAKA_01", language, completed: true, time_spent_seconds: timeSpent })} />;
+  if (view === "studio") return <StoryStudio language={language} onBack={() => setView("library")} />;
+  if (view === "admin") return <RdprDashboard onBack={returnToLibrary} />;
 
   return (
     <div className="app-shell">
@@ -67,7 +100,7 @@ export default function App() {
       </header>
       <main className="library-home">
         <section className="hero">
-          <div className="hero-copy"><p className="eyebrow">A little story time, every day</p><h1>{language === "en" ? "A whole library, ready to wander." : "ಕಥೆಗಳ ಲೋಕವನ್ನು ಅನ್ವೇಷಿಸಿ."}</h1><p>Pick a story, turn the pages, and enjoy reading together — online or offline.</p><div className="hero-stats"><span><b>{stories.length}</b> stories</span><span><b>2</b> languages</span><span><b>∞</b> imagination</span></div></div>
+          <div className="hero-copy"><p className="eyebrow">A little story time, every day</p><h1>{language === "en" ? "A whole library, ready to wander." : "ಕಥೆಗಳ ಲೋಕವನ್ನು ಅನ್ವೇಷಿಸಿ."}</h1><p>Pick a story, turn the pages, and enjoy reading together — online or offline.</p><div className="hero-stats"><span><b>{stories.length}</b> stories</span><span><b>2</b> languages</span><span><b>∞</b> imagination</span></div><button className="write-story-button" onClick={() => setView("studio")}>✦ Write your own story</button></div>
           <div className="hero-art" aria-hidden="true"><span className="sun">☀</span><span className="cloud cloud-one">☁</span><span className="cloud cloud-two">☁</span><div className="hill hill-back" /><div className="hill hill-front" /><div className="hero-book">✦<br /><small>READ</small></div></div>
         </section>
         <section className="browse-section" aria-labelledby="browse-title">
@@ -80,7 +113,10 @@ export default function App() {
         </section>
       </main>
       <footer className="site-footer"><span>Made for shared reading</span><span>•</span><span>RDPR Karnataka Rural Libraries</span></footer>
-      <KioskLock isOpen={isLibrarianOpen} onClose={() => setIsLibrarianOpen(false)} onManualSync={loadStories} />
+      <KioskLock isOpen={isLibrarianOpen} onClose={() => {
+        setIsLibrarianOpen(false);
+        if (view === "admin-gate") returnToLibrary();
+      }} onManualSync={loadStories} onOpenDashboard={openAdminDashboard} />
     </div>
   );
 }
