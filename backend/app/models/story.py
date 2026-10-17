@@ -70,6 +70,8 @@ class StorySubmissionModel(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(100), nullable=False)
     content = Column(Text, nullable=False)
+    translated_title = Column(String(100), nullable=True)
+    translated_content = Column(Text, nullable=True)
     language = Column(String(2), nullable=False)
     prompt = Column(String(200), nullable=True)
     status = Column(String(20), nullable=False, default="pending", index=True)

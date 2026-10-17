@@ -1,0 +1,39 @@
+.translation-preview {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #dce8dc;
+  border-radius: 12px;
+  background: #f5f8f1;
+}
+
+.translation-preview .field-row {
+  margin: 0;
+}
+
+.translation-preview textarea,
+.translation-preview input {
+  background: #fffefa;
+}
+
+.translation-preview .studio-status {
+  margin: 0;
+}
+
+.speech-privacy-note {
+  margin: 0;
+  color: #78887f;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}

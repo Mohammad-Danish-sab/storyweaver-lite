@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import inspect, text
 from sqlalchemy.exc import SQLAlchemyError
 import logging
 
@@ -7,6 +8,7 @@ from app.api.v1.stories import router as stories_router
 from app.api.v1.telemetry import router as telemetry_router
 from app.api.v1.submissions import router as submissions_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.translation import router as translation_router
 from app.core.database import Base, engine
 import app.models.story  # Registers SQLAlchemy models before tables are created.
 
@@ -27,12 +29,23 @@ app.include_router(stories_router, prefix="/api/v1", tags=["stories"])
 app.include_router(telemetry_router, prefix="/api/v1", tags=["telemetry"])
 app.include_router(submissions_router, prefix="/api/v1", tags=["submissions"])
 app.include_router(admin_router, prefix="/api/v1", tags=["admin"])
+app.include_router(translation_router, prefix="/api/v1", tags=["translation"])
 
 
 @app.on_event("startup")
 def create_database_tables():
     try:
         Base.metadata.create_all(bind=engine)
+        with engine.begin() as connection:
+            columns = {
+                column["name"]
+                for column in inspect(connection).get_columns("story_submissions")
+            }
+            for column in ("translated_title", "translated_content"):
+                if column not in columns:
+                    connection.execute(
+                        text(f"ALTER TABLE story_submissions ADD COLUMN {column} TEXT")
+                    )
     except SQLAlchemyError as error:
         # The reading catalogue is bundled in the API and must remain usable
         # when an optional telemetry database is temporarily offline.

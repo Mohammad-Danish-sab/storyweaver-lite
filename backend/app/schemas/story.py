@@ -44,6 +44,8 @@ class StorySubmissionCreate(BaseModel):
 
     title: str = Field(min_length=2, max_length=100)
     content: str = Field(min_length=20, max_length=5000)
+    translated_title: str | None = Field(default=None, max_length=100)
+    translated_content: str | None = Field(default=None, max_length=5000)
     language: str = Field(pattern="^(en|kn)$")
     prompt: str | None = Field(default=None, max_length=200)
 
@@ -54,6 +56,8 @@ class StorySubmissionSchema(BaseModel):
     id: int
     title: str
     content: str
+    translated_title: str | None
+    translated_content: str | None
     language: str
     prompt: str | None
     status: str
