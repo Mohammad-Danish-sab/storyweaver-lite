@@ -17,4 +17,4 @@ If you are developing a production application, we recommend using TypeScript wi
 
 ## Child reading profiles
 
-Open **Child profiles** from the library to create a reading space for each child. Profiles use a nickname, age group, and avatar and are stored only in the browser on the current device; they are not sent to the library server. Each profile has its own page at `/kids/<profile-id>`.
+Open **Child profiles** from the library to create a reading space for each child. Profiles use a nickname, a unique user ID, age group, and avatar and are stored only in the browser on the current device; they are not sent to the library server. Each profile has a liked-story shelf and a private **My stories** section where the child can write, keep, and delete stories locally. Stories written in that section are not sent to the librarian or server. Each profile has its own page at `/kids/<profile-id>`.

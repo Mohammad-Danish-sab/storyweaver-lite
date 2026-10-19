@@ -8,7 +8,13 @@ import ChildProfiles from "./pages/ChildProfiles";
 import { cacheStories, getCachedStories } from "./services/indexedDB";
 import { flushTelemetryQueue, queueTelemetry } from "./services/telemetrySync";
 import { getSocialState, toggleStoryList } from "./services/socialStore";
-import { addChildProfile, getChildProfiles } from "./services/childProfiles";
+import {
+  addChildProfile,
+  deleteChildStory,
+  getChildProfiles,
+  saveChildStory,
+  toggleChildStoryLike,
+} from "./services/childProfiles";
 
 const categories = [["all", "All stories"], ["trending", "Trending"], ["latest", "Latest"], ["saved", "Saved"], ["animals", "Animals"], ["folktales", "Folktales"], ["nature", "Nature"], ["science", "Science"], ["friendship", "Friendship"], ["community", "Community"]];
 
@@ -83,6 +89,9 @@ export default function App() {
   }, [stories, selectedCategory, social.savedIds]);
 
   const toggleSocial = (key, storyId) => setSocial((current) => toggleStoryList(current, key, storyId));
+  const toggleChildLike = (profileId, storyId) => setChildProfiles(toggleChildStoryLike(profileId, storyId));
+  const saveChildProfileStory = (profileId, story) => setChildProfiles(saveChildStory(profileId, story));
+  const deleteChildProfileStory = (profileId, storyId) => setChildProfiles(deleteChildStory(profileId, storyId));
 
   const openAdminDashboard = (pin) => {
     if (!isAdminPath()) window.history.pushState({}, "", "/admin");
@@ -127,12 +136,22 @@ export default function App() {
     queueTelemetry({ story_id: id, library_id: "GP_LIB_KARNATAKA_01", language, completed: false, time_spent_seconds: 0 });
   };
 
-  if (activeStoryId) return <ReaderPage storyId={activeStoryId} language={language} social={social} onToggleSocial={toggleSocial} onSocialChange={setSocial} onBack={() => setActiveStoryId(null)} onComplete={(timeSpent) => queueTelemetry({ story_id: activeStoryId, library_id: "GP_LIB_KARNATAKA_01", language, completed: true, time_spent_seconds: timeSpent })} />;
+  const activeChild = childProfiles.find((profile) => profile.id === activeChildId) || null;
+  const readerSocial = activeChild ? { ...social, likedIds: activeChild.likedStoryIds } : social;
+  const toggleActiveSocial = (key, storyId) => {
+    if (key === "likedIds" && activeChild) {
+      toggleChildLike(activeChild.id, storyId);
+      return;
+    }
+    toggleSocial(key, storyId);
+  };
+
+  if (activeStoryId) return <ReaderPage storyId={activeStoryId} language={language} social={readerSocial} onToggleSocial={toggleActiveSocial} onSocialChange={setSocial} onBack={() => setActiveStoryId(null)} onComplete={(timeSpent) => queueTelemetry({ story_id: activeStoryId, library_id: "GP_LIB_KARNATAKA_01", language, completed: true, time_spent_seconds: timeSpent })} />;
   if (view === "studio") return <StoryStudio language={language} onBack={() => setView("library")} />;
   if (view === "admin") return <RdprDashboard adminPin={adminPin} onBack={returnToLibrary} />;
   if (view === "kids" || view === "kid-register" || view === "kid-home") {
-    const activeChild = childProfiles.find((profile) => profile.id === activeChildId) || null;
     return <ChildProfiles
+      key={activeChild?.id || view}
       view={view}
       profiles={childProfiles}
       activeProfile={activeChild}
@@ -146,7 +165,12 @@ export default function App() {
       onOpenRegistration={openChildRegistration}
       onSwitchProfiles={openKids}
       onSelectStory={handleSelectStory}
-      onToggleSocial={toggleSocial}
+      onToggleSocial={(key, storyId) => {
+        if (key === "likedIds" && activeChild) toggleChildLike(activeChild.id, storyId);
+        else toggleSocial(key, storyId);
+      }}
+      onSaveStory={saveChildProfileStory}
+      onDeleteStory={deleteChildProfileStory}
     />;
   }
 
