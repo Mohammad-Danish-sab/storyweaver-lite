@@ -1,0 +1,33 @@
+.kids-shell { min-height: 100vh; padding: 0 clamp(1rem, 5vw, 5rem) 2rem; background: radial-gradient(circle at 85% 0, #e3f1db 0, transparent 27rem), #f6f2e8; }
+.kids-header { max-width: 1200px; height: 78px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e6dfd1; }
+.kids-brand { color: #1b3c32; font: 700 1.2rem Fraunces, Georgia, serif; }.kids-brand span { color: #7b937f; font: 600 .8rem "DM Sans", sans-serif; }
+.kids-back,.kids-switch-button,.kids-footer button,.kid-text-button { padding: .55rem .7rem; border: 0; background: transparent; color: #386a54; font-weight: 700; }
+.kids-switch-button { border: 1px solid #d8d2c5; border-radius: 999px; background: #fffdf8; }
+.kid-profiles { max-width: 980px; margin: clamp(3rem, 8vh, 6rem) auto; text-align: center; }
+.kid-profiles h1,.kid-form-intro h1,.kid-welcome h1 { margin: 0; color: #1d4034; font: 700 clamp(2.1rem, 5vw, 3.5rem)/1.08 Fraunces, Georgia, serif; letter-spacing: -.04em; }
+.kid-profiles-copy { max-width: 500px; margin: 1rem auto 2.5rem; color: #66796e; line-height: 1.6; }
+.kid-profile-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 1rem; }
+.kid-profile-card { min-height: 230px; padding: 1.3rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .45rem; border: 1px solid #e4ded2; border-radius: 20px; background: #fffdf8; color: #284638; box-shadow: 0 8px 22px rgba(56, 65, 45, .06); transition: transform .2s, box-shadow .2s; }
+.kid-profile-card:hover { transform: translateY(-4px); box-shadow: 0 15px 28px rgba(46, 65, 47, .12); }
+.kid-profile-avatar,.kid-welcome-avatar { width: 76px; height: 76px; margin-bottom: .4rem; display: grid; place-items: center; border-radius: 24px; background: #e5f1df; font-size: 2.5rem; }
+.kid-profile-card strong { font: 700 1.25rem Fraunces, Georgia, serif; }.kid-profile-card small { color: #829087; font-size: .75rem; }
+.kid-profile-open { margin-top: .5rem; color: #337454; font-size: .78rem; font-weight: 700; }
+.kid-profile-create { border: 2px dashed #c6d8c4; background: rgba(255, 253, 248, .65); }.kid-profile-create .kid-profile-avatar { color: #4b805c; font-size: 2rem; background: #edf4e9; }
+.kid-profile-hint { margin-top: 1.5rem; color: #7b897f; font-size: .8rem; }
+.kid-form-card { width: min(100%, 560px); margin: clamp(2rem, 6vh, 4.5rem) auto; padding: clamp(1.4rem, 5vw, 2.7rem); border: 1px solid #e4ded2; border-radius: 24px; background: #fffdf8; box-shadow: 0 14px 36px rgba(46, 65, 47, .08); }
+.kid-form-intro { text-align: center; }.kid-form-illustration { display: block; margin: 0 auto 1rem; font-size: 2.6rem; }.kid-form-intro h1 { font-size: clamp(2rem, 5vw, 2.8rem); }.kid-form-intro > p:last-child { margin: .8rem 0 1.8rem; color: #748177; line-height: 1.5; }
+.kid-form-card form { display: grid; gap: .7rem; }.kid-field-label,.avatar-picker legend { color: #375d49; font-size: .84rem; font-weight: 700; }
+.kid-form-card input,.kid-form-card select { width: 100%; min-height: 48px; padding: .75rem .85rem; border: 1px solid #dcd7cb; border-radius: 10px; background: #fffefa; color: #294536; }
+.avatar-picker { margin: .6rem 0; padding: 0; border: 0; }.avatar-picker legend { margin-bottom: .6rem; }.avatar-picker > div { display: flex; flex-wrap: wrap; gap: .55rem; }
+.avatar-choice { width: 46px; height: 46px; border: 1px solid #e0ded5; border-radius: 13px; background: #fbfaf4; font-size: 1.5rem; }.avatar-choice.selected { border: 2px solid #367651; background: #eaf3e6; }
+.kid-privacy-note { margin: .2rem 0 .4rem; color: #75837a; font-size: .76rem; line-height: 1.5; }.kid-form-error { margin: 0; color: #a6332e; font-size: .82rem; }
+.kid-primary-button { min-height: 50px; margin-top: .4rem; padding: .8rem 1rem; display: flex; justify-content: space-between; align-items: center; border: 0; border-radius: 11px; background: #28674f; color: white; font-weight: 700; }.kid-primary-button:hover { background: #1d503e; }
+.kid-text-button { display: block; margin: .9rem auto 0; }
+.kid-welcome { max-width: 1200px; min-height: 245px; margin: 2.4rem auto 0; padding: clamp(1.4rem, 4vw, 3rem); display: flex; align-items: center; gap: 1.25rem; border-radius: 24px; background: #dcefd9; }
+.kid-welcome-avatar { width: 90px; height: 90px; flex: 0 0 90px; margin: 0; background: rgba(255,255,255,.56); font-size: 3rem; }
+.kid-welcome h1 { font-size: clamp(2rem, 4vw, 3.2rem); }.kid-welcome p:last-child { margin: .55rem 0 0; color: #597064; }
+.kid-add-button { margin-left: auto; padding: .75rem .95rem; border: 1px solid rgba(40,103,79,.2); border-radius: 10px; background: #fffdf8; color: #286047; font-weight: 700; white-space: nowrap; }
+.kid-library { max-width: 1200px; margin: 3.5rem auto 0; }.kid-library-heading { margin-bottom: 1.6rem; display: flex; align-items: end; justify-content: space-between; gap: 1rem; }.kid-library-heading h2 { margin: 0; color: #244135; font: 700 clamp(1.6rem, 3vw, 2.3rem)/1.1 Fraunces, Georgia, serif; }.kid-library-heading > span { color: #78877d; font-size: .8rem; }
+.kid-empty { min-height: 160px; display: grid; place-items: center; border: 1px dashed #d7cdbb; border-radius: 18px; color: #65776b; text-align: center; }
+.kids-footer { max-width: 1200px; margin: 3rem auto 0; padding-top: 1.2rem; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid #e6dfd1; color: #839087; font-size: .78rem; }
+@media (max-width: 640px) { .kids-shell { padding-inline: 1rem; }.kids-header { height: 68px; }.kids-brand { font-size: 1rem; }.kid-welcome { align-items: flex-start; flex-wrap: wrap; }.kid-welcome-avatar { width: 68px; height: 68px; flex-basis: 68px; font-size: 2.2rem; }.kid-welcome > div { flex: 1; }.kid-add-button { margin-left: 0; }.kid-library-heading { align-items: center; }.kids-footer { align-items: flex-start; gap: .7rem; flex-direction: column; } }

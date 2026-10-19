@@ -4,13 +4,23 @@ import ReaderPage from "./pages/ReaderPage";
 import KioskLock from "./components/common/KioskLock";
 import RdprDashboard from "./components/admin/RdprDashboard";
 import StoryStudio from "./components/writing/StoryStudio";
+import ChildProfiles from "./pages/ChildProfiles";
 import { cacheStories, getCachedStories } from "./services/indexedDB";
 import { flushTelemetryQueue, queueTelemetry } from "./services/telemetrySync";
 import { getSocialState, toggleStoryList } from "./services/socialStore";
+import { addChildProfile, getChildProfiles } from "./services/childProfiles";
 
 const categories = [["all", "All stories"], ["trending", "Trending"], ["latest", "Latest"], ["saved", "Saved"], ["animals", "Animals"], ["folktales", "Folktales"], ["nature", "Nature"], ["science", "Science"], ["friendship", "Friendship"], ["community", "Community"]];
 
 const isAdminPath = () => window.location.pathname.replace(/\/+$/, "") === "/admin";
+const getKidsRoute = () => {
+  const path = window.location.pathname.replace(/\/+$/, "");
+  if (path === "/kids/register") return { view: "kid-register" };
+  if (path === "/kids") return { view: "kids" };
+  const profileMatch = path.match(/^\/kids\/([^/]+)$/);
+  if (profileMatch) return { view: "kid-home", profileId: profileMatch[1] };
+  return null;
+};
 
 export default function App() {
   const [stories, setStories] = useState([]);
@@ -18,10 +28,12 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [activeStoryId, setActiveStoryId] = useState(null);
   const [isLibrarianOpen, setIsLibrarianOpen] = useState(isAdminPath);
-  const [view, setView] = useState(() => isAdminPath() ? "admin-gate" : "library");
+  const [view, setView] = useState(() => isAdminPath() ? "admin-gate" : getKidsRoute()?.view || "library");
   const [adminPin, setAdminPin] = useState("");
   const [status, setStatus] = useState("loading");
   const [social, setSocial] = useState(getSocialState);
+  const [childProfiles, setChildProfiles] = useState(getChildProfiles);
+  const [activeChildId, setActiveChildId] = useState(() => getKidsRoute()?.profileId || null);
 
   const loadStories = async () => {
     setStatus("loading");
@@ -52,7 +64,9 @@ export default function App() {
         setView("admin-gate");
       } else {
         setIsLibrarianOpen(false);
-        setView("library");
+        const kidsRoute = getKidsRoute();
+        setView(kidsRoute?.view || "library");
+        setActiveChildId(kidsRoute?.profileId || null);
       }
     };
     window.addEventListener("popstate", handlePopState);
@@ -78,10 +92,34 @@ export default function App() {
   };
 
   const returnToLibrary = () => {
-    if (isAdminPath()) window.history.replaceState({}, "", "/");
+    if (isAdminPath() || getKidsRoute()) window.history.replaceState({}, "", "/");
     setAdminPin("");
     setIsLibrarianOpen(false);
+    setActiveChildId(null);
     setView("library");
+  };
+
+  const openKids = () => {
+    window.history.pushState({}, "", "/kids");
+    setActiveChildId(null);
+    setView("kids");
+  };
+
+  const openChildRegistration = () => {
+    window.history.pushState({}, "", "/kids/register");
+    setView("kid-register");
+  };
+
+  const selectChildProfile = (profile, replace = false) => {
+    window.history[replace ? "replaceState" : "pushState"]({}, "", `/kids/${encodeURIComponent(profile.id)}`);
+    setActiveChildId(profile.id);
+    setView("kid-home");
+  };
+
+  const registerChildProfile = (profileData) => {
+    const profile = addChildProfile(profileData);
+    setChildProfiles((current) => [...current, profile]);
+    selectChildProfile(profile, true);
   };
 
   const handleSelectStory = (id) => {
@@ -92,6 +130,25 @@ export default function App() {
   if (activeStoryId) return <ReaderPage storyId={activeStoryId} language={language} social={social} onToggleSocial={toggleSocial} onSocialChange={setSocial} onBack={() => setActiveStoryId(null)} onComplete={(timeSpent) => queueTelemetry({ story_id: activeStoryId, library_id: "GP_LIB_KARNATAKA_01", language, completed: true, time_spent_seconds: timeSpent })} />;
   if (view === "studio") return <StoryStudio language={language} onBack={() => setView("library")} />;
   if (view === "admin") return <RdprDashboard adminPin={adminPin} onBack={returnToLibrary} />;
+  if (view === "kids" || view === "kid-register" || view === "kid-home") {
+    const activeChild = childProfiles.find((profile) => profile.id === activeChildId) || null;
+    return <ChildProfiles
+      view={view}
+      profiles={childProfiles}
+      activeProfile={activeChild}
+      stories={stories}
+      status={status}
+      language={language}
+      social={social}
+      onBack={returnToLibrary}
+      onRegister={registerChildProfile}
+      onSelectProfile={selectChildProfile}
+      onOpenRegistration={openChildRegistration}
+      onSwitchProfiles={openKids}
+      onSelectStory={handleSelectStory}
+      onToggleSocial={toggleSocial}
+    />;
+  }
 
   return (
     <div className="app-shell">
@@ -99,12 +156,13 @@ export default function App() {
         <button className="brand" onClick={() => setIsLibrarianOpen(true)} aria-label="Open librarian controls"><span className="brand-mark" aria-hidden="true">S</span><span><strong>StoryWeaver</strong><small>Rural library, open stories</small></span></button>
         <div className="header-actions">
           <span className={`connection connection--${status}`}><i />{status === "online" ? "Library synced" : status === "offline" ? "Offline library" : "Loading library"}</span>
+          <button className="kids-entry-button" onClick={openKids}>👧 Child profiles</button>
           <button className="language-toggle" onClick={() => setLanguage((value) => value === "en" ? "kn" : "en")}><span aria-hidden="true">◎</span> {language === "en" ? "ಕನ್ನಡ" : "English"}</button>
         </div>
       </header>
       <main className="library-home">
         <section className="hero">
-          <div className="hero-copy"><p className="eyebrow">A little story time, every day</p><h1>{language === "en" ? "A whole library, ready to wander." : "ಕಥೆಗಳ ಲೋಕವನ್ನು ಅನ್ವೇಷಿಸಿ."}</h1><p>Pick a story, turn the pages, and enjoy reading together — online or offline.</p><div className="hero-stats"><span><b>{stories.length}</b> stories</span><span><b>2</b> languages</span><span><b>∞</b> imagination</span></div><button className="write-story-button" onClick={() => setView("studio")}>✦ Write your own story</button></div>
+          <div className="hero-copy"><p className="eyebrow">A little story time, every day</p><h1>{language === "en" ? "A whole library, ready to wander." : "ಕಥೆಗಳ ಲೋಕವನ್ನು ಅನ್ವೇಷಿಸಿ."}</h1><p>Pick a story, turn the pages, and enjoy reading together — online or offline.</p><div className="hero-stats"><span><b>{stories.length}</b> stories</span><span><b>2</b> languages</span><span><b>∞</b> imagination</span></div><button className="write-story-button" onClick={() => setView("studio")}>✦ Write your own story</button><button className="kids-hero-link" onClick={openKids}>Create a reading space for a child →</button></div>
           <div className="hero-art" aria-hidden="true"><span className="sun">☀</span><span className="cloud cloud-one">☁</span><span className="cloud cloud-two">☁</span><div className="hill hill-back" /><div className="hill hill-front" /><div className="hero-book">✦<br /><small>READ</small></div></div>
         </section>
         <section className="browse-section" aria-labelledby="browse-title">
