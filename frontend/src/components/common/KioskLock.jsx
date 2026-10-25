@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL } from "../../services/api";
 
 export default function KioskLock({ isOpen, onClose, onManualSync, onOpenDashboard }) {
   const [pin, setPin] = useState("");
@@ -12,7 +13,7 @@ export default function KioskLock({ isOpen, onClose, onManualSync, onOpenDashboa
     setIsVerifying(true);
     setSyncStatus("");
     try {
-      const response = await fetch("http://localhost:8000/api/v1/admin/unlock", {
+      const response = await fetch(`${API_BASE_URL}/admin/unlock`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ pin }),

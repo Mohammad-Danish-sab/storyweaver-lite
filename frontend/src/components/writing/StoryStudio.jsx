@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./StoryStudio.css";
+import { API_BASE_URL } from "../../services/api";
 
 const prompts = [
   "A tiny seed discovers a secret garden.",
@@ -8,7 +9,6 @@ const prompts = [
   "Write about an animal who learns a brave new skill.",
 ];
 
-const API_URL = "http://localhost:8000/api/v1";
 const draftKey = "storyweaver-story-studio-draft";
 
 function getDraft() {
@@ -23,7 +23,7 @@ async function translateStory(title, content, sourceLanguage, signal) {
   if (!sourceTexts.length) {
     throw new Error("Write a title or at least a few sentences before translating.");
   }
-  const response = await fetch(`${API_URL}/translate`, {
+  const response = await fetch(`${API_BASE_URL}/translate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -185,7 +185,7 @@ export default function StoryStudio({ language, onBack }) {
         setTranslationStatus({ key: translationKey, text: "Translation ready. You can review it below." });
       }
 
-      const response = await fetch(`${API_URL}/submissions`, {
+      const response = await fetch(`${API_BASE_URL}/submissions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

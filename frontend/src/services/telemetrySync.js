@@ -1,4 +1,5 @@
 import { openDB } from "idb";
+import { API_BASE_URL } from "./api";
 
 const TELEMETRY_DB = "storyweaver_telemetry_db";
 const TELEMETRY_STORE = "pending_logs";
@@ -50,7 +51,7 @@ export async function flushTelemetryQueue() {
 
   for (let i = 0; i < allLogs.length; i++) {
     try {
-      const res = await fetch("http://localhost:8000/api/v1/telemetry", {
+      const res = await fetch(`${API_BASE_URL}/telemetry`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(allLogs[i]),

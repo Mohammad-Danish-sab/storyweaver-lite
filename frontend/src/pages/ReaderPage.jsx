@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { getCachedStoryById } from "../services/indexedDB";
 import { addComment } from "../services/socialStore";
+import { API_BASE_URL } from "../services/api";
 
 export default function ReaderPage({ storyId, language, social, onToggleSocial, onSocialChange, onBack, onComplete }) {
   const [story, setStory] = useState(null);
@@ -19,7 +20,7 @@ export default function ReaderPage({ storyId, language, social, onToggleSocial, 
     let active = true;
     async function loadStory() {
       try {
-        const response = await fetch(`http://localhost:8000/api/v1/stories/${storyId}`);
+        const response = await fetch(`${API_BASE_URL}/stories/${storyId}`);
         if (!response.ok) throw new Error("Story unavailable");
         const data = await response.json();
         if (active) setStory(data);

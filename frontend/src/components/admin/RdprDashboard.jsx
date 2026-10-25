@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./RdprDashboard.css";
+import { API_BASE_URL } from "../../services/api";
 
-const API_URL = "http://localhost:8000/api/v1";
 const libraries = [["GP_LIB_KARNATAKA_01", "Gram Panchayat Library #01 (Mysuru)"], ["GP_LIB_KARNATAKA_02", "Gram Panchayat Library #02 (Belagavi)"], ["GP_LIB_KARNATAKA_03", "Gram Panchayat Library #03 (Kalaburagi)"]];
 const categories = ["animals", "folktales", "nature", "science", "friendship", "community"];
 const emptyDraft = {
@@ -30,9 +30,9 @@ export default function RdprDashboard({ adminPin, onBack }) {
     setMessage("");
     try {
       const [summaryResponse, submissionResponse, storiesResponse] = await Promise.all([
-        fetch(`${API_URL}/telemetry/summary?library_id=${encodeURIComponent(libraryId)}`, { headers: adminHeaders }),
-        fetch(`${API_URL}/submissions?status_filter=pending`, { headers: adminHeaders }),
-        fetch(`${API_URL}/stories`),
+        fetch(`${API_BASE_URL}/telemetry/summary?library_id=${encodeURIComponent(libraryId)}`, { headers: adminHeaders }),
+        fetch(`${API_BASE_URL}/submissions?status_filter=pending`, { headers: adminHeaders }),
+        fetch(`${API_BASE_URL}/stories`),
       ]);
       if (!summaryResponse.ok || !submissionResponse.ok || !storiesResponse.ok) {
         throw new Error("The admin service returned an error.");
@@ -57,7 +57,7 @@ export default function RdprDashboard({ adminPin, onBack }) {
 
   const updateSubmission = async (id, status) => {
     try {
-      const response = await fetch(`${API_URL}/submissions/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/submissions/${id}`, {
         method: "PATCH",
         headers: { ...adminHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
@@ -83,7 +83,7 @@ export default function RdprDashboard({ adminPin, onBack }) {
     setIsUploading(true);
     setMessage("");
     try {
-      const response = await fetch(`${API_URL}/stories`, {
+      const response = await fetch(`${API_BASE_URL}/stories`, {
         method: "POST",
         headers: { ...adminHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -116,7 +116,7 @@ export default function RdprDashboard({ adminPin, onBack }) {
   const deleteStory = async (story) => {
     if (!window.confirm(`Delete “${story.title_en}” from the library?`)) return;
     try {
-      const response = await fetch(`${API_URL}/stories/${encodeURIComponent(story.id)}`, {
+      const response = await fetch(`${API_BASE_URL}/stories/${encodeURIComponent(story.id)}`, {
         method: "DELETE",
         headers: adminHeaders,
       });
