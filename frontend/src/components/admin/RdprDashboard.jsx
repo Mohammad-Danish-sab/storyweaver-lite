@@ -18,6 +18,7 @@ export default function RdprDashboard({ adminPin, onBack }) {
   const [libraryId, setLibraryId] = useState(libraries[0][0]);
   const [summary, setSummary] = useState(null);
   const [submissions, setSubmissions] = useState([]);
+  const [reports, setReports] = useState([]);
   const [stories, setStories] = useState([]);
   const [draft, setDraft] = useState(emptyDraft);
   const [loading, setLoading] = useState(true);
@@ -29,22 +30,25 @@ export default function RdprDashboard({ adminPin, onBack }) {
     setLoading(true);
     setMessage("");
     try {
-      const [summaryResponse, submissionResponse, storiesResponse] = await Promise.all([
+      const [summaryResponse, submissionResponse, storiesResponse, reportsResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/telemetry/summary?library_id=${encodeURIComponent(libraryId)}`, { headers: adminHeaders }),
         fetch(`${API_BASE_URL}/submissions?status_filter=pending`, { headers: adminHeaders }),
         fetch(`${API_BASE_URL}/stories`),
+        fetch(`${API_BASE_URL}/reports`, { headers: adminHeaders }),
       ]);
-      if (!summaryResponse.ok || !submissionResponse.ok || !storiesResponse.ok) {
+      if (!summaryResponse.ok || !submissionResponse.ok || !storiesResponse.ok || !reportsResponse.ok) {
         throw new Error("The admin service returned an error.");
       }
-      const [nextSummary, nextSubmissions, nextStories] = await Promise.all([
+      const [nextSummary, nextSubmissions, nextStories, nextReports] = await Promise.all([
         summaryResponse.json(),
         submissionResponse.json(),
         storiesResponse.json(),
+        reportsResponse.json(),
       ]);
       setSummary(nextSummary);
       setSubmissions(nextSubmissions);
       setStories(nextStories);
+      setReports(nextReports.filter((report) => report.status === "pending"));
     } catch (error) {
       console.error("Could not load admin data.", error);
       setMessage("The admin service is unavailable. Check that the library server is running.");
@@ -68,6 +72,22 @@ export default function RdprDashboard({ adminPin, onBack }) {
     } catch (error) {
       console.error("Could not update submission.", error);
       setMessage("That update could not be saved. Please try again.");
+    }
+  };
+
+  const updateReport = async (id, status) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/reports/${id}`, {
+        method: "PATCH",
+        headers: { ...adminHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) throw new Error("Could not update the content report.");
+      setReports((items) => items.filter((item) => item.id !== id));
+      setMessage(status === "resolved" ? "Report marked as resolved." : "Report marked as reviewed.");
+    } catch (error) {
+      console.error("Could not update content report.", error);
+      setMessage("That report update could not be saved. Please try again.");
     }
   };
 
@@ -176,6 +196,13 @@ export default function RdprDashboard({ adminPin, onBack }) {
       <section className="review-section submission-review">
         <div className="review-heading"><div><p className="eyebrow">Young authors</p><h2>Stories waiting for review</h2></div><span>{submissions.length} pending</span></div>
         {submissions.length ? <div className="submission-list">{submissions.map((submission) => <article className="submission-card" key={submission.id}><div><span className="submission-meta">{submission.language === "kn" ? "Kannada" : "English"} · {new Date(submission.created_at).toLocaleDateString()}</span><h3>{submission.title}</h3><p className="submission-prompt">Prompt: {submission.prompt || "Free writing"}</p><p>{submission.content}</p>{submission.translated_content && <div className="submission-translation"><strong>{submission.language === "kn" ? "English translation" : "Kannada translation"}</strong><h4>{submission.translated_title}</h4><p>{submission.translated_content}</p></div>}</div><div className="review-actions"><button onClick={() => updateSubmission(submission.id, "returned")} className="secondary-action">Return</button><button onClick={() => updateSubmission(submission.id, "published")} className="primary-action">Approve</button></div></article>)}</div> : <div className="empty-state"><strong>All caught up.</strong><span>New child-authored stories will appear here for review.</span></div>}
+      </section>
+      <section className="review-section submission-review">
+        <div className="review-heading"><div><p className="eyebrow">Reader safety</p><h2>Stories reported for review</h2></div><span>{reports.length} pending</span></div>
+        {reports.length ? <div className="submission-list">{reports.map((report) => <article className="submission-card" key={report.id}>
+          <div><span className="submission-meta">{report.reason} · {new Date(report.created_at).toLocaleDateString()}</span><h3>{stories.find((story) => story.id === report.story_id)?.title_en || report.story_id}</h3><p>{report.details || "No additional details provided."}</p></div>
+          <div className="review-actions"><button onClick={() => updateReport(report.id, "reviewed")} className="secondary-action">Mark reviewed</button><button onClick={() => updateReport(report.id, "resolved")} className="primary-action">Resolve</button></div>
+        </article>)}</div> : <div className="empty-state"><strong>No reports are waiting.</strong><span>New reader reports will appear here for librarian review.</span></div>}
       </section>
     </>}
   </main>;

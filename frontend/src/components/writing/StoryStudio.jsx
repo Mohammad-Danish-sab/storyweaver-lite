@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./StoryStudio.css";
 import { API_BASE_URL } from "../../services/api";
+import { getWritingDraft, saveWritingDraft } from "../../services/accountApi";
+import AccessibilityControls from "../common/AccessibilityControls";
 
 const prompts = [
   "A tiny seed discovers a secret garden.",
@@ -45,7 +47,7 @@ async function translateStory(title, content, sourceLanguage, signal) {
   }, { title: "", content: "" });
 }
 
-export default function StoryStudio({ language, onBack }) {
+export default function StoryStudio({ language, account, onBack }) {
   const [title, setTitle] = useState(() => getDraft().title || "");
   const [content, setContent] = useState(() => getDraft().content || "");
   const [prompt, setPrompt] = useState(() => getDraft().prompt || prompts[0]);
@@ -56,6 +58,8 @@ export default function StoryStudio({ language, onBack }) {
   const [isSaving, setIsSaving] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [speechStatus, setSpeechStatus] = useState("");
+  const [draftLoaded, setDraftLoaded] = useState(!account);
+  const [draftSyncStatus, setDraftSyncStatus] = useState("");
   const recognition = useRef(null);
   const wordCount = useMemo(() => content.trim() ? content.trim().split(/\s+/).length : 0, [content]);
   const trimmedTitle = title.trim();
@@ -70,6 +74,38 @@ export default function StoryStudio({ language, onBack }) {
   useEffect(() => {
     localStorage.setItem(draftKey, JSON.stringify({ title, content, prompt }));
   }, [title, content, prompt]);
+
+  useEffect(() => {
+    if (!account) {
+      return undefined;
+    }
+    let active = true;
+    getWritingDraft().then((draft) => {
+      if (!active) return;
+      if (draft) {
+        setTitle(draft.title);
+        setContent(draft.content);
+        setPrompt(draft.prompt);
+      }
+      setDraftLoaded(true);
+      setDraftSyncStatus("Draft sync is on for this family account.");
+    }).catch((error) => {
+      if (!active) return;
+      setDraftSyncStatus(`Could not load your synced draft: ${error.message}`);
+      setDraftLoaded(true);
+    });
+    return () => { active = false; };
+  }, [account]);
+
+  useEffect(() => {
+    if (!account || !draftLoaded) return undefined;
+    const timer = window.setTimeout(() => {
+      saveWritingDraft({ title, content, prompt })
+        .then(() => setDraftSyncStatus("Draft saved to your family account."))
+        .catch((error) => setDraftSyncStatus(`Draft sync failed: ${error.message}`));
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [account, content, draftLoaded, prompt, title]);
 
   useEffect(() => () => recognition.current?.stop(), []);
 
@@ -222,9 +258,10 @@ export default function StoryStudio({ language, onBack }) {
   };
 
   return <main className="studio-shell">
-    <header className="studio-header"><button className="back-button" onClick={onBack}>← <span>Library</span></button><div><p className="eyebrow">Young authors</p><h1>Story studio</h1></div><span className="studio-language">{sourceLabel} → {targetLabel}</span></header>
+    <header className="studio-header"><button className="back-button" onClick={onBack}>← <span>Library</span></button><div><p className="eyebrow">Young authors</p><h1>Story studio</h1></div><span className="studio-language">{sourceLabel} → {targetLabel}</span><AccessibilityControls /></header>
     <section className="studio-card">
       <div className="studio-intro"><span aria-hidden="true">✦</span><h2>Your ideas belong in stories.</h2><p>Write in {sourceLabel}; we’ll translate it into {targetLabel} as you write. Story text is sent to Google Cloud Translation. Do not include your full name, address, school, or phone number.</p></div>
+      {account ? <p className="studio-status" role="status" aria-live="polite">{draftSyncStatus || "Loading your synced draft…"}</p> : <p className="studio-status">Draft saved on this device. Sign in to sync it across devices.</p>}
       <form onSubmit={submit} className="studio-form">
         <label htmlFor="story-prompt">A starting idea</label><select id="story-prompt" value={prompt} onChange={(event) => setPrompt(event.target.value)}>{prompts.map((item) => <option key={item}>{item}</option>)}</select>
         <label htmlFor="story-title">Story title ({sourceLabel})</label><input id="story-title" value={title} maxLength="100" onChange={(event) => setTitle(event.target.value)} placeholder="Give your story a wonderful title" required />

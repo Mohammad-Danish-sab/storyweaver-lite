@@ -1,5 +1,6 @@
 import { useState } from "react";
 import StoryCard from "../components/discovery/StoryCard";
+import AccessibilityControls from "../components/common/AccessibilityControls";
 import "./ChildProfiles.css";
 
 const avatars = ["🦊", "🐼", "🐸", "🦋", "🐯", "🐢", "🐰", "🐳"];
@@ -11,7 +12,6 @@ export default function ChildProfiles({
   stories,
   status,
   language,
-  social,
   onBack,
   onRegister,
   onSelectProfile,
@@ -22,6 +22,8 @@ export default function ChildProfiles({
   onSaveStory,
   onDeleteStory,
   actionError,
+  onChangeReadingLevel,
+  onToggleSavedStory,
 }) {
   const [name, setName] = useState("");
   const [userId, setUserId] = useState("");
@@ -31,6 +33,13 @@ export default function ChildProfiles({
   const [storyTitle, setStoryTitle] = useState("");
   const [storyContent, setStoryContent] = useState("");
   const [storyError, setStoryError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const visibleStories = stories.filter((story) => (
+    story.level <= (activeProfile?.maxReadingLevel ?? 5)
+    && [story.title_en, story.title_kn, story.category, "English", "Kannada", `level ${story.level}`]
+      .some((value) => String(value).toLocaleLowerCase().includes(searchQuery.trim().toLocaleLowerCase()))
+  ));
 
   const submitProfile = async (event) => {
     event.preventDefault();
@@ -78,7 +87,7 @@ export default function ChildProfiles({
       <main className="kids-shell">
         <header className="kids-header">
           <button className="kids-back" onClick={onBack}>← Library</button>
-          <span className="kids-brand">StoryWeaver <span>· Kids</span></span>
+          <span className="kids-brand">StoryWeaver <span>· Kids</span></span><AccessibilityControls />
         </header>
         <section className="kid-form-card">
           <div className="kid-form-intro"><span className="kid-form-illustration" aria-hidden="true">🌱</span><p className="eyebrow">A space of your own</p><h1>Create a reader profile</h1><p>Pick a nickname and an avatar to make your own reading space.</p></div>
@@ -115,16 +124,20 @@ export default function ChildProfiles({
           <button className="kid-add-button" onClick={onOpenRegistration}>＋ Add a reader</button>
         </section>
         <section className="kid-library">
-          <div className="kid-library-heading"><div><p className="eyebrow">The story shelf</p><h2>Choose an adventure</h2></div><span>{stories.length} stories</span></div>
+          <div className="kid-library-heading"><div><p className="eyebrow">The story shelf</p><h2>Choose an adventure</h2></div><span>{visibleStories.length} stories</span></div>
+          <label className="kid-search">Find a story<input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Search title, topic, or level" /></label>
           {actionError ? <p className="kid-form-error" role="alert">{actionError}</p> : null}
           {status === "loading" && stories.length === 0 ? <div className="kid-empty">Finding stories for you…</div> : null}
           {status === "error" && stories.length === 0 ? <div className="kid-empty">The library is not available right now. Please try again later.</div> : null}
-          {stories.length > 0 ? <div className="story-grid">{stories.map((story) => <StoryCard key={story.id} story={story} language={language} onSelect={onSelectStory} isSaved={social.savedIds.includes(story.id)} isLiked={activeProfile.likedStoryIds.includes(story.id)} onToggleSave={() => onToggleSocial("savedIds", story.id)} onToggleLike={() => onToggleSocial("likedIds", story.id)} />)}</div> : null}
+          {visibleStories.length > 0 ? <div className="story-grid">{visibleStories.map((story) => {
+            const progress = activeProfile.readingProgress.find((item) => item.storyId === story.id);
+            return <div key={story.id}><StoryCard story={story} language={language} onSelect={onSelectStory} isSaved={activeProfile.savedStoryIds.includes(story.id)} isLiked={activeProfile.likedStoryIds.includes(story.id)} onToggleSave={() => onToggleSavedStory(activeProfile.id, story.id)} onToggleLike={() => onToggleSocial("likedIds", story.id)} />{progress && !progress.completed ? <p className="kid-progress-note">Continue from page {progress.lastPage + 1} of this story.</p> : progress?.completed ? <p className="kid-progress-note">Finished story ✓</p> : null}</div>;
+          })}</div> : stories.length ? <div className="kid-empty">No stories match your search or reading level.</div> : null}
         </section>
         <section className="kid-library kid-liked-section">
           <div className="kid-library-heading"><div><p className="eyebrow">Your favourites</p><h2>Stories you like</h2></div><span>{activeProfile.likedStoryIds.length} liked</span></div>
-          {stories.filter((story) => activeProfile.likedStoryIds.includes(story.id)).length > 0
-            ? <div className="story-grid">{stories.filter((story) => activeProfile.likedStoryIds.includes(story.id)).map((story) => <StoryCard key={story.id} story={story} language={language} onSelect={onSelectStory} isSaved={social.savedIds.includes(story.id)} isLiked onToggleSave={() => onToggleSocial("savedIds", story.id)} onToggleLike={() => onToggleSocial("likedIds", story.id)} />)}</div>
+          {visibleStories.filter((story) => activeProfile.likedStoryIds.includes(story.id)).length > 0
+            ? <div className="story-grid">{visibleStories.filter((story) => activeProfile.likedStoryIds.includes(story.id)).map((story) => <StoryCard key={story.id} story={story} language={language} onSelect={onSelectStory} isSaved={activeProfile.savedStoryIds.includes(story.id)} isLiked onToggleSave={() => onToggleSavedStory(activeProfile.id, story.id)} onToggleLike={() => onToggleSocial("likedIds", story.id)} />)}</div>
             : <div className="kid-empty">Tap the heart on a story to add it to your favourites.</div>}
         </section>
         <section className="kid-library kid-writing-section">
@@ -149,13 +162,18 @@ export default function ChildProfiles({
 
   return (
     <main className="kids-shell">
-      <header className="kids-header"><button className="kids-back" onClick={onBack}>← Library</button><span className="kids-brand">StoryWeaver <span>· Kids</span></span></header>
+      <header className="kids-header"><button className="kids-back" onClick={onBack}>← Library</button><span className="kids-brand">StoryWeaver <span>· Kids</span></span><AccessibilityControls /></header>
       <section className="kid-profiles">
         <p className="eyebrow">A place for every young reader</p>
         <h1>Who’s reading today?</h1>
         <p className="kid-profiles-copy">Choose your profile or create a new one to get a reading space of your own.</p>
+        {actionError ? <p className="kid-form-error" role="alert">{actionError}</p> : null}
         <div className="kid-profile-list">
-          {profiles.map((profile) => <button className="kid-profile-card" key={profile.id} onClick={() => onSelectProfile(profile)}><span className="kid-profile-avatar" aria-hidden="true">{profile.avatar}</span><strong>{profile.name}</strong><small>ID: {profile.userId}</small><small>{profile.ageBand === "under-6" ? "Under 6" : `${profile.ageBand} years`}</small><span className="kid-profile-open">Open reading space →</span></button>)}
+          {profiles.map((profile) => {
+            const completedCount = profile.readingProgress.filter((item) => item.completed).length;
+            const inProgressCount = profile.readingProgress.filter((item) => !item.completed).length;
+            return <article className="kid-profile-card" key={profile.id}><button className="kid-profile-open-button" onClick={() => onSelectProfile(profile)}><span className="kid-profile-avatar" aria-hidden="true">{profile.avatar}</span><strong>{profile.name}</strong><small>ID: {profile.userId}</small><small>{profile.ageBand === "under-6" ? "Under 6" : `${profile.ageBand} years`}</small><small>{completedCount} finished · {inProgressCount} in progress</small><span className="kid-profile-open">Open reading space →</span></button><label className="parent-reading-control">Maximum reading level<select aria-label={`Maximum reading level for ${profile.name}`} value={profile.maxReadingLevel} onChange={(event) => onChangeReadingLevel(profile.id, event.target.value)}>{[1, 2, 3, 4, 5].map((level) => <option key={level} value={level}>Level {level}</option>)}</select></label></article>;
+          })}
           <button className="kid-profile-card kid-profile-create" onClick={onOpenRegistration}><span className="kid-profile-avatar" aria-hidden="true">＋</span><strong>Create a profile</strong><small>Make a new reading space</small><span className="kid-profile-open">Get started →</span></button>
         </div>
         {profiles.length === 0 ? <p className="kid-profile-hint">Create a child profile in your family account to begin. Use a nickname instead of a full name.</p> : null}

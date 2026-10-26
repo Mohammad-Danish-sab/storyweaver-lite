@@ -31,3 +31,23 @@ export const getChildProfiles = () => request("/children");
 export const createChildProfile = (profile) => request("/children", jsonBody(profile));
 export const toggleChildLike = (profileId, storyId) =>
   request(`/children/${encodeURIComponent(profileId)}/likes`, jsonBody({ story_id: storyId }));
+export const updateChildProgress = (profileId, progress) =>
+  request(`/children/${encodeURIComponent(profileId)}/progress`, { method: "PUT", body: JSON.stringify({
+    story_id: progress.storyId,
+    last_page: progress.lastPage,
+    completed: progress.completed,
+  }) });
+export const toggleChildSavedStory = (profileId, storyId) =>
+  request(`/children/${encodeURIComponent(profileId)}/saved`, jsonBody({ story_id: storyId }));
+export const updateChildSettings = (profileId, maxReadingLevel) =>
+  request(`/children/${encodeURIComponent(profileId)}/settings`, {
+    method: "PATCH",
+    body: JSON.stringify({ max_reading_level: maxReadingLevel }),
+  });
+export const getWritingDraft = () => request("/writing-draft");
+export const saveWritingDraft = (draft) => request("/writing-draft", {
+  method: "PUT",
+  body: JSON.stringify(draft),
+});
+export const getSavedStories = () => request("/saved-stories");
+export const toggleSavedStory = (storyId) => request("/saved-stories", jsonBody({ story_id: storyId }));

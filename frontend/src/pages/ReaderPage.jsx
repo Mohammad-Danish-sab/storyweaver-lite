@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { getCachedStoryById } from "../services/indexedDB";
 import { addComment } from "../services/socialStore";
 import { API_BASE_URL } from "../services/api";
+import AccessibilityControls from "../components/common/AccessibilityControls";
 
-export default function ReaderPage({ storyId, language, social, onToggleSocial, onSocialChange, onBack, onComplete }) {
+export default function ReaderPage({ storyId, language, social, initialPage = 0, onProgress, onToggleSocial, onSocialChange, onBack, onComplete }) {
   const [story, setStory] = useState(null);
   const [currentPage, setCurrentPage] = useState(0);
   const [isReading, setIsReading] = useState(false);
@@ -12,8 +13,18 @@ export default function ReaderPage({ storyId, language, social, onToggleSocial, 
   const [isRecording, setIsRecording] = useState(false);
   const [speechMessage, setSpeechMessage] = useState("");
   const [commentText, setCommentText] = useState("");
+  const [reportReason, setReportReason] = useState("inappropriate");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportMessage, setReportMessage] = useState("");
+  const [isReporting, setIsReporting] = useState(false);
   const startedAt = useRef(null);
   const recognition = useRef(null);
+  const initialPageRef = useRef(initialPage);
+  const progressCallback = useRef(onProgress);
+
+  useEffect(() => {
+    progressCallback.current = onProgress;
+  }, [onProgress]);
 
   useEffect(() => {
     startedAt.current = Date.now();
@@ -23,15 +34,29 @@ export default function ReaderPage({ storyId, language, social, onToggleSocial, 
         const response = await fetch(`${API_BASE_URL}/stories/${storyId}`);
         if (!response.ok) throw new Error("Story unavailable");
         const data = await response.json();
-        if (active) setStory(data);
+        if (active) {
+          setStory(data);
+          setCurrentPage(Math.min(initialPageRef.current, Math.max(0, data.pages.length - 1)));
+        }
       } catch {
         const data = await getCachedStoryById(storyId);
-        if (active) setStory(data || null);
+        if (active) {
+          setStory(data || null);
+          if (data) {
+            setCurrentPage(Math.min(initialPageRef.current, Math.max(0, data.pages.length - 1)));
+          }
+        }
       }
     }
     loadStory();
     return () => { active = false; window.speechSynthesis?.cancel(); recognition.current?.stop(); };
   }, [storyId]);
+
+  useEffect(() => {
+    if (story && progressCallback.current) {
+      progressCallback.current({ storyId, lastPage: currentPage, completed: false });
+    }
+  }, [story, currentPage, storyId]);
 
   const page = story?.pages[currentPage];
   const isFirstPage = currentPage === 0;
@@ -74,7 +99,12 @@ export default function ReaderPage({ storyId, language, social, onToggleSocial, 
   const nextPage = () => {
     window.speechSynthesis?.cancel();
     setIsReading(false);
-    if (isLastPage) { onComplete(Math.max(1, Math.round((Date.now() - startedAt.current) / 1000))); onBack(); return; }
+    if (isLastPage) {
+      progressCallback.current?.({ storyId, lastPage: currentPage, completed: true });
+      onComplete(Math.max(1, Math.round((Date.now() - startedAt.current) / 1000)));
+      onBack();
+      return;
+    }
     setCurrentPage((value) => value + 1);
   };
 
@@ -86,10 +116,35 @@ export default function ReaderPage({ storyId, language, social, onToggleSocial, 
     setCommentText("");
   };
 
+  const submitReport = async (event) => {
+    event.preventDefault();
+    setIsReporting(true);
+    setReportMessage("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/reports`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          story_id: storyId,
+          reason: reportReason,
+          details: reportDetails.trim() || null,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.detail || "Your report could not be sent.");
+      setReportDetails("");
+      setReportMessage("Thank you. A librarian will review this story.");
+    } catch (error) {
+      setReportMessage(error.message);
+    } finally {
+      setIsReporting(false);
+    }
+  };
+
   if (!story || !page) return <main className="reader-loading"><span className="spinner" />Opening your story…</main>;
 
   return <main className="reader-shell">
-    <header className="reader-header"><button className="back-button" onClick={onBack}>← <span>Library</span></button><div className="reader-title"><span>{story.title_en}</span><small>Page {currentPage + 1} of {story.pages.length}</small></div><button className="reader-language" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>Aa</button></header>
+    <header className="reader-header"><button className="back-button" onClick={onBack}>← <span>Library</span></button><div className="reader-title"><span>{story.title_en}</span><small>Page {currentPage + 1} of {story.pages.length}</small></div><AccessibilityControls /></header>
     <div className="reading-progress" aria-label={`Page ${currentPage + 1} of ${story.pages.length}`}><i style={{ width: `${((currentPage + 1) / story.pages.length) * 100}%` }} /></div>
     <section className="reader-card">
       <div className="reader-image-wrap"><img src={page.image_url} alt="Story illustration" className="reader-image" /><span className="page-chip">{String(currentPage + 1).padStart(2, "0")}</span></div>
@@ -97,5 +152,22 @@ export default function ReaderPage({ storyId, language, social, onToggleSocial, 
     </section>
     <nav className="reader-nav" aria-label="Page navigation"><button className="previous-button" onClick={() => { window.speechSynthesis?.cancel(); setCurrentPage((value) => value - 1); }} disabled={isFirstPage}>← Previous</button><span>{currentPage + 1} / {story.pages.length}</span><button className="next-button" onClick={nextPage}>{isLastPage ? "Finish story ✦" : "Next page →"}</button></nav>
     <section className="comments-section" aria-labelledby="comments-title"><div><p className="eyebrow">Reader circle</p><h2 id="comments-title">What did you think?</h2></div><form onSubmit={submitComment}><label htmlFor="story-comment">Leave a kind comment</label><div><input id="story-comment" value={commentText} maxLength="280" onChange={(event) => setCommentText(event.target.value)} placeholder="Share your favourite part…" /><button type="submit">Post</button></div></form><div className="comment-list">{(social.comments[storyId] || []).length ? social.comments[storyId].slice().reverse().map((comment) => <article key={comment.id} className="comment"><span>Reader</span><p>{comment.text}</p></article>) : <p className="no-comments">Be the first reader to share a thought.</p>}</div></section>
+    <section className="report-section" aria-labelledby="report-title">
+      <h2 id="report-title">Help keep stories safe</h2>
+      <p>Comments on this device stay private. Send a report if this library story needs a librarian’s review.</p>
+      <form onSubmit={submitReport}>
+        <label htmlFor="report-reason">Reason</label>
+        <select id="report-reason" value={reportReason} onChange={(event) => setReportReason(event.target.value)}>
+          <option value="inappropriate">Not suitable for children</option>
+          <option value="incorrect">Factual or translation issue</option>
+          <option value="privacy">Privacy concern</option>
+          <option value="other">Other concern</option>
+        </select>
+        <label htmlFor="report-details">Details (optional)</label>
+        <textarea id="report-details" maxLength="1000" value={reportDetails} onChange={(event) => setReportDetails(event.target.value)} />
+        <button type="submit" disabled={isReporting}>{isReporting ? "Sending…" : "Report to librarian"}</button>
+      </form>
+      {reportMessage ? <p role="status">{reportMessage}</p> : null}
+    </section>
   </main>;
 }

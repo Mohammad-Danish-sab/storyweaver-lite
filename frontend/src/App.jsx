@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import StoryCard from "./components/discovery/StoryCard";
 import ReaderPage from "./pages/ReaderPage";
 import KioskLock from "./components/common/KioskLock";
+import AccessibilityControls from "./components/common/AccessibilityControls";
 import RdprDashboard from "./components/admin/RdprDashboard";
 import StoryStudio from "./components/writing/StoryStudio";
 import ChildProfiles from "./pages/ChildProfiles";
@@ -15,8 +16,13 @@ import {
   createChildProfile as createChildProfileRequest,
   getChildProfiles,
   getCurrentAccount,
+  getSavedStories,
   logoutAccount,
   toggleChildLike as toggleChildLikeRequest,
+  toggleChildSavedStory as toggleChildSavedStoryRequest,
+  updateChildProgress as updateChildProgressRequest,
+  updateChildSettings as updateChildSettingsRequest,
+  toggleSavedStory as toggleSavedStoryRequest,
 } from "./services/accountApi";
 
 const categories = [["all", "All stories"], ["trending", "Trending"], ["latest", "Latest"], ["saved", "Saved"], ["animals", "Animals"], ["folktales", "Folktales"], ["nature", "Nature"], ["science", "Science"], ["friendship", "Friendship"], ["community", "Community"]];
@@ -33,13 +39,16 @@ export default function App() {
   const [adminPin, setAdminPin] = useState("");
   const [status, setStatus] = useState("loading");
   const [social, setSocial] = useState(getSocialState);
+  const [accountSavedIds, setAccountSavedIds] = useState([]);
   const [account, setAccount] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [authIntent, setAuthIntent] = useState("library");
   const [authError, setAuthError] = useState("");
   const [actionError, setActionError] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [childProfiles, setChildProfiles] = useState([]);
   const [activeChildId, setActiveChildId] = useState(null);
+  const librarySavedIds = account ? accountSavedIds : social.savedIds;
   const resetToken = new URLSearchParams(window.location.search).get("reset_token") || "";
   const loadFamilyProfiles = async () => (await getChildProfiles()).map((profile) => ({
     ...profile,
@@ -72,10 +81,11 @@ export default function App() {
     const restoreAccount = async () => {
       try {
         const restoredAccount = await getCurrentAccount();
-        const profiles = await loadFamilyProfiles();
+        const [profiles, savedStories] = await Promise.all([loadFamilyProfiles(), getSavedStories()]);
         if (!active) return;
         setAccount(restoredAccount);
         setChildProfiles(profiles);
+        setAccountSavedIds(savedStories.storyIds);
       } catch (error) {
         if (!active) return;
         if (error.status !== 401) setAuthError(error.message);
@@ -106,13 +116,37 @@ export default function App() {
   const filteredStories = useMemo(() => {
     const result = selectedCategory === "all" || selectedCategory === "trending" || selectedCategory === "latest"
       ? [...stories] : stories.filter((story) => story.category === selectedCategory);
-    if (selectedCategory === "saved") return stories.filter((story) => social.savedIds.includes(story.id));
-    if (selectedCategory === "trending") return result.sort((a, b) => b.trend_score - a.trend_score);
-    if (selectedCategory === "latest") return result.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
-    return result;
-  }, [stories, selectedCategory, social.savedIds]);
+    let filtered = selectedCategory === "saved"
+      ? stories.filter((story) => librarySavedIds.includes(story.id))
+      : result;
+    if (selectedCategory === "trending") filtered = filtered.sort((a, b) => b.trend_score - a.trend_score);
+    if (selectedCategory === "latest") filtered = filtered.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (query) filtered = filtered.filter((story) =>
+      [story.title_en, story.title_kn, story.category, "English", "Kannada", `level ${story.level}`]
+        .some((value) => String(value).toLocaleLowerCase().includes(query)));
+    return filtered;
+  }, [stories, selectedCategory, librarySavedIds, searchQuery]);
 
-  const toggleSocial = (key, storyId) => setSocial((current) => toggleStoryList(current, key, storyId));
+  const toggleSocial = (key, storyId) => {
+    if (key !== "savedIds") {
+      setSocial((current) => toggleStoryList(current, key, storyId));
+      return;
+    }
+    if (activeChild) {
+      toggleActiveChildSaved(activeChild.id, storyId);
+      return;
+    }
+    if (account) {
+      toggleSavedStoryRequest(storyId).then((result) => {
+        setAccountSavedIds((current) => result.saved
+          ? [...current, storyId]
+          : current.filter((id) => id !== storyId));
+      }).catch((error) => setActionError(error.message));
+      return;
+    }
+    setSocial((current) => toggleStoryList(current, key, storyId));
+  };
   const openAdminDashboard = (pin) => {
     if (!isAdminPath()) window.history.pushState({}, "", "/admin");
     setAdminPin(pin);
@@ -162,9 +196,10 @@ export default function App() {
   };
 
   const handleAuthenticated = async (authenticatedAccount) => {
-    const profiles = await loadFamilyProfiles();
+    const [profiles, savedStories] = await Promise.all([loadFamilyProfiles(), getSavedStories()]);
     setAccount(authenticatedAccount);
     setChildProfiles(profiles);
+    setAccountSavedIds(savedStories.storyIds);
     setAuthError("");
     setView(authIntent === "kids" ? "kids" : "library");
   };
@@ -178,6 +213,7 @@ export default function App() {
     try {
       await logoutAccount();
       setAccount(null);
+      setAccountSavedIds([]);
       setChildProfiles([]);
       setActiveChildId(null);
       setView("library");
@@ -203,6 +239,47 @@ export default function App() {
     }
   };
 
+  const toggleActiveChildSaved = async (profileId, storyId) => {
+    setActionError("");
+    try {
+      const result = await toggleChildSavedStoryRequest(profileId, storyId);
+      setChildProfiles((current) => current.map((profile) => {
+        if (profile.id !== profileId) return profile;
+        const savedStoryIds = result.saved
+          ? [...profile.savedStoryIds, storyId]
+          : profile.savedStoryIds.filter((id) => id !== storyId);
+        return { ...profile, savedStoryIds };
+      }));
+    } catch (error) {
+      setActionError(error.message);
+    }
+  };
+
+  const saveChildProgress = async (profileId, progress) => {
+    try {
+      const savedProgress = await updateChildProgressRequest(profileId, progress);
+      setChildProfiles((current) => current.map((profile) => {
+        if (profile.id !== profileId) return profile;
+        const remaining = profile.readingProgress.filter((item) => item.storyId !== savedProgress.storyId);
+        return { ...profile, readingProgress: [...remaining, savedProgress] };
+      }));
+    } catch (error) {
+      setActionError(error.message);
+    }
+  };
+
+  const changeChildReadingLevel = async (profileId, maxReadingLevel) => {
+    setActionError("");
+    try {
+      await updateChildSettingsRequest(profileId, Number(maxReadingLevel));
+      setChildProfiles((current) => current.map((profile) => profile.id === profileId
+        ? { ...profile, maxReadingLevel: Number(maxReadingLevel) }
+        : profile));
+    } catch (error) {
+      setActionError(error.message);
+    }
+  };
+
   const saveChildProfileStory = async (profileId, story) => {
     const savedStory = saveChildStory(profileId, story);
     setChildProfiles((current) => current.map((profile) => profile.id === profileId
@@ -223,10 +300,16 @@ export default function App() {
   };
 
   const activeChild = childProfiles.find((profile) => profile.id === activeChildId) || null;
-  const readerSocial = activeChild ? { ...social, likedIds: activeChild.likedStoryIds } : social;
+  const readerSocial = activeChild
+    ? { ...social, likedIds: activeChild.likedStoryIds, savedIds: activeChild.savedStoryIds }
+    : { ...social, savedIds: librarySavedIds };
   const toggleActiveSocial = (key, storyId) => {
     if (key === "likedIds" && activeChild) {
       toggleChildLike(activeChild.id, storyId);
+      return;
+    }
+    if (key === "savedIds" && activeChild) {
+      toggleActiveChildSaved(activeChild.id, storyId);
       return;
     }
     toggleSocial(key, storyId);
@@ -244,8 +327,21 @@ export default function App() {
       onPasswordReset={() => window.history.replaceState({}, "", window.location.pathname)}
     />;
   }
-  if (activeStoryId) return <ReaderPage storyId={activeStoryId} language={language} social={readerSocial} onToggleSocial={toggleActiveSocial} onSocialChange={setSocial} onBack={() => setActiveStoryId(null)} onComplete={(timeSpent) => queueTelemetry({ story_id: activeStoryId, library_id: "GP_LIB_KARNATAKA_01", language, completed: true, time_spent_seconds: timeSpent })} />;
-  if (view === "studio") return <StoryStudio language={language} onBack={() => setView("library")} />;
+  if (activeStoryId) {
+    const storyProgress = activeChild?.readingProgress.find((item) => item.storyId === activeStoryId);
+    return <ReaderPage
+      storyId={activeStoryId}
+      language={language}
+      social={readerSocial}
+      initialPage={storyProgress?.completed ? 0 : storyProgress?.lastPage || 0}
+      onProgress={activeChild ? (progress) => saveChildProgress(activeChild.id, progress) : undefined}
+      onToggleSocial={toggleActiveSocial}
+      onSocialChange={setSocial}
+      onBack={() => setActiveStoryId(null)}
+      onComplete={(timeSpent) => queueTelemetry({ story_id: activeStoryId, library_id: "GP_LIB_KARNATAKA_01", language, completed: true, time_spent_seconds: timeSpent })}
+    />;
+  }
+  if (view === "studio") return <StoryStudio language={language} account={account} onBack={() => setView("library")} />;
   if (view === "admin") return <RdprDashboard adminPin={adminPin} onBack={returnToLibrary} />;
   if (view === "kids" || view === "kid-register" || view === "kid-home") {
     return <ChildProfiles
@@ -256,7 +352,6 @@ export default function App() {
       stories={stories}
       status={status}
       language={language}
-      social={social}
       onBack={returnToLibrary}
       onRegister={registerChildProfile}
       onSelectProfile={selectChildProfile}
@@ -270,6 +365,8 @@ export default function App() {
       onSaveStory={saveChildProfileStory}
       onDeleteStory={deleteChildProfileStory}
       actionError={actionError}
+      onChangeReadingLevel={changeChildReadingLevel}
+      onToggleSavedStory={toggleActiveChildSaved}
     />;
   }
 
@@ -284,6 +381,7 @@ export default function App() {
             ? <><span className="account-email-nav" title={account.email}>{account.email}</span><button className="account-nav-button" onClick={signOut}>Sign out</button></>
             : <button className="account-nav-button" onClick={openAccount}>Sign in</button>}
           <button className="language-toggle" onClick={() => setLanguage((value) => value === "en" ? "kn" : "en")}><span aria-hidden="true">◎</span> {language === "en" ? "ಕನ್ನಡ" : "English"}</button>
+          <AccessibilityControls />
         </div>
       </header>
       {authError ? <div className="account-global-error" role="alert">{authError} <button onClick={openAccount}>Sign in again</button></div> : null}
@@ -295,10 +393,11 @@ export default function App() {
         <section className="browse-section" aria-labelledby="browse-title">
           <div className="section-heading"><div><p className="eyebrow">Explore</p><h2 id="browse-title">Choose your next adventure</h2></div><button className="refresh-button" onClick={loadStories} disabled={status === "loading"}>↻ Refresh library</button></div>
           <div className="category-list" role="tablist" aria-label="Story categories">{categories.map(([category, label]) => <button key={category} role="tab" aria-selected={selectedCategory === category} className={selectedCategory === category ? "category active" : "category"} onClick={() => setSelectedCategory(category)}>{category === "trending" ? "↗" : category === "latest" ? "✦" : category === "saved" ? "★" : category === "animals" ? "♧" : "◈"} {label}</button>)}</div>
+          <label className="story-search"><span>Search stories</span><input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Title, topic, language, or level…" /></label>
           {status === "loading" && stories.length === 0 ? <div className="empty-state"><span className="spinner" />Finding stories for you…</div> : null}
           {status === "error" ? <div className="empty-state"><strong>Your library is not available yet.</strong><span>Connect to the library server, then try again.</span><button onClick={loadStories}>Try again</button></div> : null}
-          {filteredStories.length > 0 ? <div className="story-grid">{filteredStories.map((story) => <StoryCard key={story.id} story={story} language={language} onSelect={handleSelectStory} isSaved={social.savedIds.includes(story.id)} isLiked={social.likedIds.includes(story.id)} onToggleSave={() => toggleSocial("savedIds", story.id)} onToggleLike={() => toggleSocial("likedIds", story.id)} />)}</div> : null}
-          {status !== "loading" && status !== "error" && filteredStories.length === 0 ? <div className="empty-state"><strong>No saved stories yet.</strong><span>Tap the star on a story to keep it for later.</span></div> : null}
+          {filteredStories.length > 0 ? <div className="story-grid">{filteredStories.map((story) => <StoryCard key={story.id} story={story} language={language} onSelect={handleSelectStory} isSaved={librarySavedIds.includes(story.id)} isLiked={social.likedIds.includes(story.id)} onToggleSave={() => toggleSocial("savedIds", story.id)} onToggleLike={() => toggleSocial("likedIds", story.id)} />)}</div> : null}
+          {status !== "loading" && status !== "error" && filteredStories.length === 0 ? <div className="empty-state"><strong>{selectedCategory === "saved" && !searchQuery.trim() ? "No saved stories yet." : "No stories match those filters."}</strong><span>{selectedCategory === "saved" && !searchQuery.trim() ? "Tap the star on a story to keep it for later." : "Try another search term or story category."}</span></div> : null}
         </section>
       </main>
       <footer className="site-footer"><span>Made for shared reading</span><span>•</span><span>RDPR Karnataka Rural Libraries</span></footer>

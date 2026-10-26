@@ -48,6 +48,14 @@ def create_database_tables():
     try:
         Base.metadata.create_all(bind=engine)
         with engine.begin() as connection:
+            child_columns = {
+                column["name"]
+                for column in inspect(connection).get_columns("child_profiles")
+            }
+            if "max_reading_level" not in child_columns:
+                connection.execute(
+                    text("ALTER TABLE child_profiles ADD COLUMN max_reading_level INTEGER NOT NULL DEFAULT 5")
+                )
             columns = {
                 column["name"]
                 for column in inspect(connection).get_columns("story_submissions")

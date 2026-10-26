@@ -27,9 +27,14 @@ from app.models.account import (
     AccountSessionModel,
     ChildLikedStoryModel,
     ChildProfileModel,
+    ChildSavedStoryModel,
+    ChildStoryProgressModel,
     ParentAccountModel,
+    ParentSavedStoryModel,
     PasswordResetModel,
+    WritingDraftModel,
 )
+from app.schemas.story import ChildReadingLevelUpdate, ChildStoryProgressUpdate
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -67,6 +72,16 @@ class ChildLikeRequest(BaseModel):
     story_id: str = Field(min_length=1, max_length=100)
 
 
+class ChildSavedStoryRequest(BaseModel):
+    story_id: str = Field(min_length=1, max_length=100)
+
+
+class WritingDraftRequest(BaseModel):
+    title: str = Field(default="", max_length=160)
+    content: str = Field(default="", max_length=5000)
+    prompt: str = Field(default="", max_length=200)
+
+
 def account_response(account: ParentAccountModel) -> dict:
     return {"id": account.id, "email": account.email}
 
@@ -85,6 +100,12 @@ def child_response(child: ChildProfileModel, db: Session) -> dict:
     likes = db.query(ChildLikedStoryModel.story_id).filter(
         ChildLikedStoryModel.child_id == child.id,
     ).all()
+    saved = db.query(ChildSavedStoryModel.story_id).filter(
+        ChildSavedStoryModel.child_id == child.id,
+    ).all()
+    progress = db.query(ChildStoryProgressModel).filter(
+        ChildStoryProgressModel.child_id == child.id,
+    ).all()
     return {
         "id": child.id,
         "userId": child.user_id,
@@ -92,6 +113,12 @@ def child_response(child: ChildProfileModel, db: Session) -> dict:
         "ageBand": child.age_band,
         "avatar": child.avatar,
         "likedStoryIds": [row[0] for row in likes],
+        "savedStoryIds": [row[0] for row in saved],
+        "readingProgress": [
+            {"storyId": row.story_id, "lastPage": row.last_page, "completed": row.completed}
+            for row in progress
+        ],
+        "maxReadingLevel": child.max_reading_level,
         "authoredStories": [],
         "createdAt": child.created_at.isoformat(),
     }
@@ -269,6 +296,7 @@ def create_child(
         name=request.name.strip(),
         age_band=request.age_band,
         avatar=request.avatar,
+        max_reading_level={"under-6": 1, "6-8": 2, "9-12": 5}[request.age_band],
     )
     db.add(child)
     try:
@@ -298,3 +326,126 @@ def toggle_child_like(
     db.commit()
     return {"storyId": request.story_id, "liked": is_liked}
 
+
+@router.put("/children/{child_id}/progress")
+def update_child_progress(
+    child_id: str,
+    request: ChildStoryProgressUpdate,
+    account: ParentAccountModel = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    child = _owned_child(child_id, account.id, db)
+    progress = db.get(ChildStoryProgressModel, (child.id, request.story_id))
+    if progress is None:
+        progress = ChildStoryProgressModel(
+            child_id=child.id,
+            story_id=request.story_id,
+            last_page=request.last_page,
+            completed=request.completed,
+        )
+        db.add(progress)
+    else:
+        progress.last_page = request.last_page
+        progress.completed = progress.completed or request.completed
+        progress.updated_at = datetime.utcnow()
+    db.commit()
+    return {
+        "storyId": progress.story_id,
+        "lastPage": progress.last_page,
+        "completed": progress.completed,
+    }
+
+
+@router.post("/children/{child_id}/saved")
+def toggle_child_saved_story(
+    child_id: str,
+    request: ChildSavedStoryRequest,
+    account: ParentAccountModel = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    child = _owned_child(child_id, account.id, db)
+    saved = db.get(ChildSavedStoryModel, (child.id, request.story_id))
+    if saved:
+        db.delete(saved)
+        is_saved = False
+    else:
+        db.add(ChildSavedStoryModel(child_id=child.id, story_id=request.story_id))
+        is_saved = True
+    db.commit()
+    return {"storyId": request.story_id, "saved": is_saved}
+
+
+@router.patch("/children/{child_id}/settings")
+def update_child_settings(
+    child_id: str,
+    request: ChildReadingLevelUpdate,
+    account: ParentAccountModel = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    child = _owned_child(child_id, account.id, db)
+    child.max_reading_level = request.max_reading_level
+    db.commit()
+    return {"childId": child.id, "maxReadingLevel": child.max_reading_level}
+
+
+@router.get("/writing-draft")
+def get_writing_draft(
+    account: ParentAccountModel = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    draft = db.get(WritingDraftModel, account.id)
+    if not draft:
+        return None
+    return {
+        "title": draft.title,
+        "content": draft.content,
+        "prompt": draft.prompt,
+        "updatedAt": draft.updated_at.isoformat(),
+    }
+
+
+@router.put("/writing-draft")
+def save_writing_draft(
+    request: WritingDraftRequest,
+    account: ParentAccountModel = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    draft = db.get(WritingDraftModel, account.id)
+    if draft is None:
+        draft = WritingDraftModel(account_id=account.id, **request.model_dump())
+        db.add(draft)
+    else:
+        draft.title = request.title
+        draft.content = request.content
+        draft.prompt = request.prompt
+        draft.updated_at = datetime.utcnow()
+    db.commit()
+    return {"saved": True, "updatedAt": draft.updated_at.isoformat()}
+
+
+@router.get("/saved-stories")
+def list_saved_stories(
+    account: ParentAccountModel = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    rows = db.query(ParentSavedStoryModel.story_id).filter(
+        ParentSavedStoryModel.account_id == account.id,
+    ).all()
+    return {"storyIds": [row[0] for row in rows]}
+
+
+@router.post("/saved-stories")
+def toggle_saved_story(
+    request: ChildSavedStoryRequest,
+    account: ParentAccountModel = Depends(get_current_account),
+    db: Session = Depends(get_db),
+):
+    saved = db.get(ParentSavedStoryModel, (account.id, request.story_id))
+    if saved:
+        db.delete(saved)
+        is_saved = False
+    else:
+        db.add(ParentSavedStoryModel(account_id=account.id, story_id=request.story_id))
+        is_saved = True
+    db.commit()
+    return {"storyId": request.story_id, "saved": is_saved}

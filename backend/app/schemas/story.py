@@ -66,3 +66,23 @@ class StorySubmissionSchema(BaseModel):
 
 class StorySubmissionStatusUpdate(BaseModel):
     status: str = Field(pattern="^(pending|published|returned)$")
+
+
+class ChildStoryProgressUpdate(BaseModel):
+    story_id: str = Field(min_length=1, max_length=100)
+    last_page: int = Field(ge=0, le=30)
+    completed: bool = False
+
+
+class ChildReadingLevelUpdate(BaseModel):
+    max_reading_level: int = Field(ge=1, le=5)
+
+
+class ContentReportCreate(BaseModel):
+    story_id: str = Field(min_length=1, max_length=100)
+    reason: str = Field(pattern="^(inappropriate|incorrect|privacy|other)$")
+    details: str | None = Field(default=None, max_length=1000)
+
+
+class ContentReportStatusUpdate(BaseModel):
+    status: str = Field(pattern="^(pending|reviewed|resolved)$")

@@ -4,6 +4,25 @@
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; background: #f6f2e8; }
 button, input { font: inherit; } button { cursor: pointer; } button:focus-visible, input:focus-visible { outline: 3px solid #e9a443; outline-offset: 3px; }
+html { --reading-scale: 100%; font-size: var(--reading-scale); }
+html.readable-font { font-family: Arial, sans-serif; letter-spacing: .025em; word-spacing: .08em; }
+html.high-contrast { filter: contrast(1.25); }
+.accessibility-menu { position: relative; z-index: 5; }
+.accessibility-menu summary { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid #d8d2c5; border-radius: 999px; background: #fffdf8; color: #20533f; font-weight: 700; cursor: pointer; list-style: none; }
+.accessibility-options { position: absolute; top: calc(100% + .5rem); right: 0; width: 230px; padding: 1rem; display: grid; grid-template-columns: 1fr auto; gap: .7rem; border: 1px solid #d8d2c5; border-radius: 12px; background: #fffdf8; box-shadow: 0 12px 30px #20352d24; color: #294536; font-size: .8rem; }
+.accessibility-options label:has(input[type="checkbox"]) { grid-column: 1 / -1; display: flex; gap: .5rem; align-items: center; }
+.accessibility-options input[type="range"] { width: 100%; }
+.accessibility-options input[type="checkbox"] { width: auto; }
+.report-section { max-width: 1150px; margin: 1.5rem auto 0; padding: 1.25rem; border: 1px solid #e4ded2; border-radius: 16px; background: #fffdf8; color: #52675b; }
+.report-section h2 { margin: 0; color: #244135; font: 700 1.3rem Fraunces, Georgia, serif; }
+.report-section p { line-height: 1.5; }
+.report-section form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; align-items: center; }
+.report-section label { color: #375d49; font-size: .8rem; font-weight: 700; }
+.report-section select,.report-section textarea { width: 100%; min-height: 42px; padding: .55rem; border: 1px solid #dcd7cb; border-radius: 8px; background: #fffefa; color: #294536; }
+.report-section textarea { min-height: 70px; resize: vertical; }
+.report-section button { min-height: 42px; border: 0; border-radius: 8px; background: #28674f; color: #fff; font-weight: 700; }
+.report-section button:disabled { opacity: .6; }
+@media (max-width: 600px) { .report-section form { grid-template-columns: 1fr; } }
 .app-shell { min-height: 100vh; overflow: hidden; background: radial-gradient(circle at 90% 0%, #e2f2db 0, transparent 24rem), #f6f2e8; }
 .site-header { height: 82px; padding: 0 clamp(1.25rem, 5vw, 5.5rem); display: flex; align-items: center; justify-content: space-between; background: rgba(250,248,241,.88); border-bottom: 1px solid #e6dfd1; backdrop-filter: blur(12px); position: relative; z-index: 2; }
 .brand { display: flex; align-items: center; gap: .75rem; padding: 0; border: 0; background: transparent; color: #1b3c32; text-align: left; }.brand-mark { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 13px 13px 13px 3px; background: #1f6a52; color: #fff8e8; font-family: Fraunces, serif; font-size: 1.55rem; }.brand strong,.brand small { display:block; }.brand strong { font-family: Fraunces, serif; font-size: 1.25rem; }.brand small { margin-top: .08rem; color:#6b7f73; font-size:.72rem; }

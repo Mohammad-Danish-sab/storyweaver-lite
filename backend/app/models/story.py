@@ -76,3 +76,14 @@ class StorySubmissionModel(Base):
     prompt = Column(String(200), nullable=True)
     status = Column(String(20), nullable=False, default="pending", index=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+
+class ContentReportModel(Base):
+    __tablename__ = "content_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    story_id = Column(String(100), nullable=False, index=True)
+    reason = Column(String(30), nullable=False)
+    details = Column(Text, nullable=True)
+    status = Column(String(20), nullable=False, default="pending", index=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
